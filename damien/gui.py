@@ -108,6 +108,7 @@ class NeutronApp:
 
         self.notebook.add(self.tab_analysis, text=" Analysis & Control ")
         self.notebook.add(self.tab_config, text=" Physical Parameters ")
+        self.notebook.add(self.tab_stats, text=" Fit Results & Stats ")
         
         # --- STATUS BAR --- (Correction apportée ici avec tk.Label)
         self.status_label = tk.Label(self.root, text="Ready", bd=1, relief="sunken", anchor="w")
