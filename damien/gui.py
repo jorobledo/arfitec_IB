@@ -243,8 +243,10 @@ class NeutronApp:
             "4 - Efficiency vs ToF",
             "5 - Maxwellian Comparison",
             "6 - Least Square Maxwell Fit",
-            "7 - Curve Fit Maxwell",
-            "8 - Energy Spectrum",
+            "7.1 - Curve Fit Maxwell (ToF view)",
+            "7.2 - Curve Fit Maxwell (ToF + Epi)",
+            "8.1 - Energy Spectrum (ToF convert)",
+            "8.2 - Energy Spectrum (ToF + Epi )",
             "9 - Reactor Power Comparison",
             "10 - Reactor Power vs Neutron Rate",
             "11 - Cross Section Grouping Comparision",
@@ -784,12 +786,21 @@ class NeutronApp:
             elif numero_plot == "6":
                 self.current_fig = plot_6(fichiers, self.datasets, frame=self.plot_frame)
                 
-            elif numero_plot == "7":
+            elif numero_plot == "7.1":
+                self.current_fig, self.fit_results = plot_7(fichiers, self.datasets, choice_sub=7.1, frame=self.plot_frame)
+
+            elif numero_plot == "7.2":
                 self.current_fig, self.fit_results = plot_7(fichiers, self.datasets, choice_sub=7.2, frame=self.plot_frame)
-                
-            elif numero_plot == "8":
+
+            elif numero_plot == "8.1":
                 if self.fit_results is None:
-                    messagebox.showwarning("Warning", "Please execute plot 7 first.")
+                    messagebox.showwarning("Warning", "Please execute plot 7 first to compute fit results.")
+                    return
+                self.current_fig = plot_8(fichiers, self.datasets, self.fit_results, choice_sub=8.1, frame=self.plot_frame)
+
+            elif numero_plot == "8.2":
+                if self.fit_results is None:
+                    messagebox.showwarning("Warning", "Please execute plot 7 first to compute fit results.")
                     return
                 self.current_fig = plot_8(fichiers, self.datasets, self.fit_results, choice_sub=8.2, frame=self.plot_frame)
                 

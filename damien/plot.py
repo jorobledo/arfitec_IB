@@ -12,6 +12,8 @@ from physics import Na, k_b, R_gaz, R_tube, masse_n, angle, atom_dens, eV
 from physics import model_epi_pure, fit_maxwellian_grid_search, maxwell_model_tof, model_tof_epi, calculate_r_squared
 from physics import maxwell_model_E, maxwell_model_E_corr, maxwell_epi_analytique_E, maxwell_epi_analytique_E_corr
 from physics import cross_section, transmission_coeff, apply_grouping_methode1, apply_grouping_methode2
+from physics import compute_cross_section_uncertainty, read_reference_file, compute_amp_init_from_ref, compute_grouping_cross_section_m2
+from physics import compute_fit_results_from_dataset, compute_plot8_models
 
 from config import PARAMS
 
@@ -36,16 +38,6 @@ def _integrer_canvas(fig, frame):
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
     else:
         plt.show()
-
-
-def compute_cross_section_uncertainty(flux0, unc0, sample, unc_sample, thickness, atom_density):
-    """Propage l'incertitude sur le rapport ToF jusqu'à la section efficace."""
-    with np.errstate(divide='ignore', invalid='ignore'):
-        Tr = sample / flux0
-        dTr = np.sqrt((unc_sample / flux0)**2 + (sample * unc0 / flux0**2)**2)
-        unc_sigma = np.abs(1.0 / (atom_density * thickness) * dTr / Tr * 1e24)
-    unc_sigma = np.where(np.isfinite(unc_sigma), unc_sigma, 0.0)
-    return unc_sigma
 
 
 def plot_1(fichiers, datasets, frame=None):
@@ -267,65 +259,25 @@ def plot_7(fichiers, datasets, choice_sub=7.1, frame=None):
         t_min = PARAMS['t_min']
         t_max = PARAMS['t_max']
         
-        fit_results = {}
-        
-        p0_pure = [1e-15, 620000.0]
         data = datasets[fichiers[0]]
-        
-        popt_1, pcov_1 = curve_fit(maxwell_model_tof, data['ToF'], data['flux_tof'], p0=p0_pure)
-        a0_tof_pure_1, a1_tof_pure_1 = popt_1[0], popt_1[1]
-        perr_1 = np.sqrt(np.diag(pcov_1))
-        
-        mask_1 = (data['ToF'] >= t_min) & (data['ToF'] <= t_max)
-        flux_modele_1 = maxwell_model_tof(data['ToF'], a0_tof_pure_1, a1_tof_pure_1)
-        r_squared_1 = calculate_r_squared(data['flux_tof'][mask_1], flux_modele_1[mask_1])
-        
-        popt_2, pcov_2 = curve_fit(maxwell_model_tof, data['ToF_grouped'], data['flux_tof_grouped'], p0=p0_pure)
-        a0_tof_pure_2, a1_tof_pure_2 = popt_2[0], popt_2[1]
-        perr_2 = np.sqrt(np.diag(pcov_2))
-        
-        mask_2 = (data['ToF_grouped'] >= t_min) & (data['ToF_grouped'] <= t_max)
-        flux_modele_2 = maxwell_model_tof(data['ToF_grouped'], a0_tof_pure_2, a1_tof_pure_2)
-        r_squared_2 = calculate_r_squared(data['flux_tof_grouped'][mask_2], flux_modele_2[mask_2])
-        
-        T_1 = (masse_n * data['meta']['path_length']**2) / (2 * k_b * a1_tof_pure_1 * 1e-12)
-        dT_1 = T_1 * (perr_1[1] / a1_tof_pure_1)
-        T_2 = (masse_n * data['meta']['path_length']**2) / (2 * k_b * a1_tof_pure_2 * 1e-12)
-        dT_2 = T_2 * (perr_2[1] / a1_tof_pure_2)
-        
-        borne_inf_tof_epi = [0.0, 1e5, 0.0, 0.01, 0.0, 0.01]
-        borne_sup_tof_epi = [np.inf, 1e7, np.inf, 5.0, 2.0, 20.0]
-        
-        p0_t_epi = [
-            np.max(data['flux_tof']) * (data['ToF'][np.argmax(data['flux_tof'])] * 1e6)**5,
-            620000.0,
-            np.mean(data['flux_tof'][-50:]),
-            0.5,
-            0.27,
-            0.921
-        ]
-        
-        model_fit_lambda = lambda t, a0, a1, a2, Ed, b, beta: model_tof_epi(t, a0, a1, a2, Ed, b, beta, data['E'])
-        
-        popt_epi, pcov_epi = curve_fit(model_fit_lambda, data['ToF'], data['flux_tof'], p0=p0_t_epi, bounds=(borne_inf_tof_epi, borne_sup_tof_epi))
-        
-        a0_epi_1, a1_epi_1, a2_epi_1, Ed_epi_1, b_epi_1, beta_epi_1 = popt_epi
-        perr_epi_1 = np.sqrt(np.diag(pcov_epi))
-        
-        flux_modele_1_epi = model_tof_epi(data['ToF'], a0_epi_1, a1_epi_1, a2_epi_1, Ed_epi_1, b_epi_1, beta_epi_1, data['E'])
-        r_squared_1_epi = calculate_r_squared(data['flux_tof'][mask_1], flux_modele_1_epi[mask_1])
-        
-        T_1_epi = (masse_n * data['meta']['path_length']**2) / (2 * k_b * a1_epi_1 * 1e-12)
-        dT_1_epi = T_1_epi * (perr_epi_1[1] / a1_epi_1)
-                    
-        flux_epi_pure = model_epi_pure(data['ToF'], 5.5710*1e31, 3.2099*1e10, -12.973, 425506) / 10
-        flux_luis = flux_modele_1 + flux_epi_pure
-        
-        fit_results.update({
-            'a0_tof_pure_1': a0_tof_pure_1, 'a1_tof_pure_1': a1_tof_pure_1,
-            'a0_epi_1': a0_epi_1, 'a1_epi_1': a1_epi_1, 'a2_epi_1': a2_epi_1,
-            'Ed_epi_1': Ed_epi_1, 'T_1_epi': T_1_epi, 'b_epi_1': b_epi_1, 'beta_epi_1': beta_epi_1
-        })
+        fit = compute_fit_results_from_dataset(data)
+
+        # map fit results to local variables used by plotting logic
+        fit_results = fit
+        flux_modele_1 = fit['flux_modele_1']
+        flux_modele_2 = fit['flux_modele_2']
+        flux_modele_1_epi = fit['flux_modele_1_epi']
+        flux_epi_pure = fit['flux_epi_pure']
+        flux_luis = fit['flux_luis']
+        mask_1 = fit['mask_1']
+        mask_2 = fit['mask_2']
+        a1_tof_pure_1 = fit['a1_tof_pure_1']
+        a1_tof_pure_2 = fit['a1_tof_pure_2']
+        T_1 = fit['T_1']
+        T_1_epi = fit['T_1_epi']
+        r_squared_1 = fit['r_squared_1']
+        r_squared_2 = fit['r_squared_2']
+        r_squared_1_epi = fit['r_squared_1_epi']
         
         if choice_sub == 7.1:            
             fig, ax = plt.subplots(figsize=(12, 5))
@@ -359,139 +311,125 @@ def plot_7(fichiers, datasets, choice_sub=7.1, frame=None):
         return fig, fit_results         
             
 def plot_8(fichiers, datasets, fit_results, choice_sub=8.1, frame=None):
-        print('Calculating please wait...')
-        E_min = PARAMS['E_min']
-        E_max = PARAMS['E_max']
-        
-        data = datasets[fichiers[0]]
-        
-        mask_E = (data['E'] >= E_min) & (data['E'] <= E_max)
-        mask_epi = (data['E'] >= 0.4) & (data['E'] <= E_max)
-        borne_inf = [0.0, 5.8]
-        borne_sup = [np.inf, 232.0]
-        
-        E_joules_all = data['E'] * eV
-        jacobian = 0.5 * data['meta']['path_length'] * np.sqrt(masse_n / (2 * E_joules_all**3))
-        
-        p0_1 = [np.max(data['flux_E']) / np.max(data['E']), 1 / (k_b / eV * 300)]
-        popt_1, pcov_1 = curve_fit(maxwell_model_E, data['E'][mask_E], data['flux_E'][mask_E], p0=p0_1, bounds=(borne_inf, borne_sup))
-        a0_best_1, a1_best_1 = popt_1[0], popt_1[1]
-        perr_1 = np.sqrt(np.diag(pcov_1))
-        
-        flux_modele_1 = maxwell_model_E(data['E'], a0_best_1, a1_best_1)
-        r_squared_1 = calculate_r_squared(data['flux_E'][mask_E], flux_modele_1[mask_E])
-        T_1 = 1 / (k_b / eV * a1_best_1)
-        dT_1 = T_1 * (perr_1[1] / a1_best_1)
-        
-        p0_2 = [np.max(data['flux_E2']) / np.max(data['E']), 1 / (k_b / eV * 300)]
-        popt_2, pcov_2 = curve_fit(maxwell_model_E_corr, data['E'][mask_E], data['flux_E2'][mask_E], p0=p0_2, bounds=(borne_inf, borne_sup))
-        a0_best_2, a1_best_2 = popt_2[0], popt_2[1]
-        perr_2 = np.sqrt(np.diag(pcov_2))
-        
-        flux_modele_2 = maxwell_model_E_corr(data['E'], a0_best_2, a1_best_2)
-        r_squared_2 = calculate_r_squared(data['flux_E2'][mask_E], flux_modele_2[mask_E])
-        T_2 = 1 / (k_b / eV * a1_best_2)
-        dT_2 = T_2 * (perr_2[1] / a1_best_2)
-        
-        if choice_sub == 8.1:            
-            a0_tof_pure_1 = fit_results.get('a0_tof_pure_1')
-            a1_tof_pure_1 = fit_results.get('a1_tof_pure_1')
+    print('Calculating please wait...')
+    data = datasets[fichiers[0]]
+    models = compute_plot8_models(data, fit_results)
 
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 9), sharex=True)
-            ax1.errorbar(data['E'][mask_E], data['flux_E'][mask_E], yerr=data['unc_tof'][mask_E], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected 1')
-            ax1.plot(data['E'][mask_E], flux_modele_1[mask_E], '-', color='black', linewidth=2, label=f'Fit Maxwellian 1 (T = {T_1:.1f} K, R² = {r_squared_1:.2f})')
-            
-            if a0_tof_pure_1 is not None and a1_tof_pure_1 is not None:
-                flux_tof_pure_poly = maxwell_model_tof(data['ToF'], a0_tof_pure_1, a1_tof_pure_1)
-                flux_tof_pure_converted = flux_tof_pure_poly * jacobian
-                r2_tof_conv_1 = calculate_r_squared(data['flux_E'][mask_E], flux_tof_pure_converted[mask_E])
-                r2_tof_conv_2 = calculate_r_squared(data['flux_E2'][mask_E], (flux_tof_pure_converted * data['E'])[mask_E])
-                ax1.plot(data['E'][mask_E], flux_tof_pure_converted[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.1 converti (R² = {r2_tof_conv_1:.2f})')
-                
-            ax1.set_xlabel('Energy (eV)'); ax1.set_ylabel('Flux (E)'); ax1.set_title('Energy spectrum with optimal Maxwellian fit')  
-            ax1.legend(loc='upper right', fontsize=8); ax1.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax1.set_xscale('log')
-            
-            ax2.errorbar(data['E'][mask_E], data['flux_E2'][mask_E], yerr=data['unc_tof'][mask_E], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Energy flux * E')
-            ax2.plot(data['E'][mask_E], flux_modele_2[mask_E], '-', color='black', linewidth=2, label=f'Fit Maxwellian 2 (T = {T_2:.1f} K, R² = {r_squared_2:.2f})')
-            if a0_tof_pure_1 is not None and a1_tof_pure_1 is not None:
-                ax2.plot(data['E'][mask_E], (flux_tof_pure_converted * data['E'])[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.1 converti * E (R² = {r2_tof_conv_2:.2f})')
-            
-            ax2.set_xlabel('Energy (eV)'); ax2.set_ylabel('Flux (E) * E '); ax2.set_title('Corrected energy spectrum with optimal Maxwellian fit')  
-            ax2.legend(loc='upper right', fontsize=8); ax2.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax2.set_xscale('log')
-            plt.tight_layout()
-            _integrer_canvas(fig, frame)
-            return fig
-            
-        elif choice_sub == 8.2:
-            try:
-                a0_from_tof = fit_results['a0_epi_1']
-                a1_from_tof = fit_results['a1_epi_1']
-                a2_from_tof = fit_results['a2_epi_1']  
-                Ed_from_tof = fit_results['Ed_epi_1']
-                T_depuis_tof = fit_results['T_1_epi']
-                b_from_tof = fit_results['b_epi_1']
-                beta_from_tof = fit_results['beta_epi_1']
-            except KeyError:
-                print("ERROR: Temporal epithermal parameters not found in fit_results.")
-                return
-
-            b_manuel, beta_manuel = 0.27, 1.921   
-            b_corr_manuel, beta_corr_manuel = 0.5, 1.921   
-
-            E_pic_1 = 1 / a1_from_tof
-            hauteur_maxw_pure_1 = a0_best_1 * E_pic_1 * np.exp(-a1_best_1 * E_pic_1)
-            a0_epi_energy_1 = hauteur_maxw_pure_1 / E_pic_1
-            a1_epi_energy_1 = 1 / (k_b / eV * T_depuis_tof)
-            
-            forme_epi_1 = (1 - np.exp(-(data['E'][mask_epi] / Ed_from_tof)**2)) * (data['E'][mask_epi]**(b_manuel - 1)) * np.exp(-data['E'][mask_epi] / beta_manuel)
-            a2_epi_energy_1 = np.mean(data['flux_E'][mask_epi] / forme_epi_1)
-
-            flux_modele_1_epi = maxwell_epi_analytique_E(data['E'], a0_epi_energy_1, a1_epi_energy_1, a2_epi_energy_1, Ed_from_tof, b_manuel, beta_manuel)
-            
-            flux_tof_epi_pure = model_tof_epi(data['ToF'], a0_from_tof, a1_from_tof, a2_from_tof, Ed_from_tof, b_from_tof, beta_from_tof, data['E'])
-            flux_tof_epi_converted = flux_tof_epi_pure * jacobian
-            r2_tof_epi_conv_1 = calculate_r_squared(data['flux_E'][mask_E], flux_tof_epi_converted[mask_E])
-            r2_tof_epi_conv_2 = calculate_r_squared(data['flux_E2'][mask_E], (flux_tof_epi_converted * data['E'])[mask_E])
-            
-            E_pic_2 = 2 / a1_from_tof
-            hauteur_maxw_pure_2 = a0_best_2 * (E_pic_2**2) * np.exp(-a1_best_2 * E_pic_2)
-            a0_epi_energy_2 = hauteur_maxw_pure_2 / (E_pic_2**2)
-            a1_epi_energy_2 = 1 / (k_b / eV * T_depuis_tof)
-            
-            forme_epi_2 = (1 - np.exp(-(data['E'][mask_epi] / Ed_from_tof)**2)) * (data['E'][mask_epi]**b_corr_manuel) * np.exp(-data['E'][mask_epi] / beta_corr_manuel)
-            a2_epi_energy_2 = np.mean(data['flux_E2'][mask_epi] / forme_epi_2)
-            
-            flux_modele_2_epi = maxwell_epi_analytique_E_corr(data['E'], a0_epi_energy_2, a1_epi_energy_2, a2_epi_energy_2, Ed_from_tof, b_corr_manuel, beta_corr_manuel)
-            
-            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(18, 10), sharex=True)
+    flux_modele_1 = models['flux_modele_1']
+    flux_modele_2 = models['flux_modele_2']
+    jacobian = models['jacobian']
+    mask_E = models['mask_E']
+    mask_epi = models['mask_epi']
+    a0_best_1 = models.get('a0_best_1')
+    a1_best_1 = models.get('a1_best_1')
+    a0_best_2 = models.get('a0_best_2')
+    a1_best_2 = models.get('a1_best_2')
+    r_squared_1 = models.get('r_squared_1')
+    r_squared_2 = models.get('r_squared_2')
+    T_1 = models.get('T_1')
+    T_2 = models.get('T_2')
+    flux_tof_pure_converted = models.get('flux_tof_pure_converted')
+    flux_tof_epi_converted = models.get('flux_tof_epi_converted')
         
-            ax1.plot(data['E'][mask_E], data['flux_E'][mask_E], '.', markersize=4, color='purple', label='Experimental corrected 1')
-            ax1.plot(data['E'][mask_E], flux_modele_1[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 1 pure')
-            ax1.plot(data['E'][mask_E], flux_modele_1_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 1 + Epi')
-            ax1.plot(data['E'][mask_E], flux_tof_epi_converted[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.2 converti (R² = {r2_tof_epi_conv_1:.2f})')
-            ax1.set_ylabel('Flux (E)'); ax1.set_title('Energy spectrum (Linear Y)'); ax1.legend(loc='upper right', fontsize=8); ax1.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax1.set_xscale('log')
-            
-            ax2.plot(data['E'][mask_E], data['flux_E2'][mask_E], '.', markersize=4, color='purple', label='Energy flux * E')
-            ax2.plot(data['E'][mask_E], flux_modele_2[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 2 pure')
-            ax2.plot(data['E'][mask_E], flux_modele_2_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 2 + Epi')
-            ax2.plot(data['E'][mask_E], (flux_tof_epi_converted * data['E'])[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.2 converti * E (R² = {r2_tof_epi_conv_2:.2f})')
-            ax2.set_ylabel('Flux (E) * E'); ax2.set_title('Corrected energy spectrum (Linear Y)'); ax2.legend(loc='upper right', fontsize=8); ax2.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax2.set_xscale('log')
+    if choice_sub == 8.1:
+        a0_tof_pure_1 = fit_results.get('a0_tof_pure_1')
+        a1_tof_pure_1 = fit_results.get('a1_tof_pure_1')
 
-            ax3.plot(data['E'][mask_E], data['flux_E'][mask_E], '.', markersize=4, color='purple', label='Experimental corrected 1')
-            ax3.plot(data['E'][mask_E], flux_modele_1[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 1 pure')
-            ax3.plot(data['E'][mask_E], flux_modele_1_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 1 + Epi')
-            ax3.plot(data['E'][mask_E], flux_tof_epi_converted[mask_E], ':', color='orange', linewidth=2.5, label='Fit ToF 7.2 converti')
-            ax3.set_xlabel('Energy (eV)'); ax3.set_ylabel('Flux (E)'); ax3.set_title('Energy spectrum (Log Y)'); ax3.legend(loc='upper right', fontsize=8); ax3.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax3.set_xscale('log'); ax3.set_yscale('log'); ax3.set_ylim(bottom=np.max(data['flux_E'][mask_E]) * 1e-6)  
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 9), sharex=True)
+        ax1.errorbar(data['E'][mask_E], data['flux_E'][mask_E], yerr=data['unc_tof'][mask_E], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected 1')
+        ax1.plot(data['E'][mask_E], flux_modele_1[mask_E], '-', color='black', linewidth=2, label=f'Fit Maxwellian 1 (T = {T_1:.1f} K, R² = {r_squared_1:.2f})')
 
-            ax4.plot(data['E'][mask_E], data['flux_E2'][mask_E], '.', markersize=4, color='purple', label='Energy flux * E')
-            ax4.plot(data['E'][mask_E], flux_modele_2[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 2 pure')
-            ax4.plot(data['E'][mask_E], flux_modele_2_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 2 + Epi')
-            ax4.plot(data['E'][mask_E], (flux_tof_epi_converted * data['E'])[mask_E], ':', color='orange', linewidth=2.5, label='Fit ToF 7.2 converti * E')
-            ax4.set_xlabel('Energy (eV)'); ax4.set_ylabel('Flux (E) * E'); ax4.set_title('Corrected energy spectrum (Log Y)'); ax4.legend(loc='upper right', fontsize=8); ax4.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax4.set_xscale('log'); ax4.set_yscale('log'); ax4.set_ylim(bottom=np.max(data['flux_E2'][mask_E]) * 1e-6)
-            
-            plt.tight_layout()
-            _integrer_canvas(fig, frame)
-            return fig
+        if a0_tof_pure_1 is not None and a1_tof_pure_1 is not None:
+            flux_tof_pure_poly = maxwell_model_tof(data['ToF'], a0_tof_pure_1, a1_tof_pure_1)
+            flux_tof_pure_converted = flux_tof_pure_poly * jacobian
+            r2_tof_conv_1 = calculate_r_squared(data['flux_E'][mask_E], flux_tof_pure_converted[mask_E])
+            r2_tof_conv_2 = calculate_r_squared(data['flux_E2'][mask_E], (flux_tof_pure_converted * data['E'])[mask_E])
+            ax1.plot(data['E'][mask_E], flux_tof_pure_converted[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.1 converti (R² = {r2_tof_conv_1:.2f})')
+
+        ax1.set_xlabel('Energy (eV)'); ax1.set_ylabel('Flux (E)'); ax1.set_title('Energy spectrum with optimal Maxwellian fit')
+        ax1.legend(loc='upper right', fontsize=8); ax1.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax1.set_xscale('log')
+
+        ax2.errorbar(data['E'][mask_E], data['flux_E2'][mask_E], yerr=data['unc_tof'][mask_E], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Energy flux * E')
+        ax2.plot(data['E'][mask_E], flux_modele_2[mask_E], '-', color='black', linewidth=2, label=f'Fit Maxwellian 2 (T = {T_2:.1f} K, R² = {r_squared_2:.2f})')
+        if a0_tof_pure_1 is not None and a1_tof_pure_1 is not None:
+            ax2.plot(data['E'][mask_E], (flux_tof_pure_converted * data['E'])[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.1 converti * E (R² = {r2_tof_conv_2:.2f})')
+
+        ax2.set_xlabel('Energy (eV)'); ax2.set_ylabel('Flux (E) * E '); ax2.set_title('Corrected energy spectrum with optimal Maxwellian fit')
+        ax2.legend(loc='upper right', fontsize=8); ax2.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax2.set_xscale('log')
+        plt.tight_layout()
+        _integrer_canvas(fig, frame)
+        return fig
+
+    elif choice_sub == 8.2:
+        try:
+            a0_from_tof = fit_results['a0_epi_1']
+            a1_from_tof = fit_results['a1_epi_1']
+            a2_from_tof = fit_results['a2_epi_1']
+            Ed_from_tof = fit_results['Ed_epi_1']
+            T_depuis_tof = fit_results['T_1_epi']
+            b_from_tof = fit_results['b_epi_1']
+            beta_from_tof = fit_results['beta_epi_1']
+        except KeyError:
+            print("ERROR: Temporal epithermal parameters not found in fit_results.")
+            return
+
+        b_manuel, beta_manuel = 0.27, 1.921
+        b_corr_manuel, beta_corr_manuel = 0.5, 1.921
+
+        E_pic_1 = 1 / a1_from_tof
+        hauteur_maxw_pure_1 = a0_best_1 * E_pic_1 * np.exp(-a1_best_1 * E_pic_1)
+        a0_epi_energy_1 = hauteur_maxw_pure_1 / E_pic_1
+        a1_epi_energy_1 = 1 / (k_b / eV * T_depuis_tof)
+
+        forme_epi_1 = (1 - np.exp(-(data['E'][mask_epi] / Ed_from_tof)**2)) * (data['E'][mask_epi]**(b_manuel - 1)) * np.exp(-data['E'][mask_epi] / beta_manuel)
+        a2_epi_energy_1 = np.mean(data['flux_E'][mask_epi] / forme_epi_1)
+
+        flux_modele_1_epi = maxwell_epi_analytique_E(data['E'], a0_epi_energy_1, a1_epi_energy_1, a2_epi_energy_1, Ed_from_tof, b_manuel, beta_manuel)
+
+        flux_tof_epi_pure = model_tof_epi(data['ToF'], a0_from_tof, a1_from_tof, a2_from_tof, Ed_from_tof, b_from_tof, beta_from_tof, data['E'])
+        flux_tof_epi_converted = flux_tof_epi_pure * jacobian
+        r2_tof_epi_conv_1 = calculate_r_squared(data['flux_E'][mask_E], flux_tof_epi_converted[mask_E])
+        r2_tof_epi_conv_2 = calculate_r_squared(data['flux_E2'][mask_E], (flux_tof_epi_converted * data['E'])[mask_E])
+
+        E_pic_2 = 2 / a1_from_tof
+        hauteur_maxw_pure_2 = a0_best_2 * (E_pic_2**2) * np.exp(-a1_best_2 * E_pic_2)
+        a0_epi_energy_2 = hauteur_maxw_pure_2 / (E_pic_2**2)
+        a1_epi_energy_2 = 1 / (k_b / eV * T_depuis_tof)
+
+        forme_epi_2 = (1 - np.exp(-(data['E'][mask_epi] / Ed_from_tof)**2)) * (data['E'][mask_epi]**b_corr_manuel) * np.exp(-data['E'][mask_epi] / beta_corr_manuel)
+        a2_epi_energy_2 = np.mean(data['flux_E2'][mask_epi] / forme_epi_2)
+
+        flux_modele_2_epi = maxwell_epi_analytique_E_corr(data['E'], a0_epi_energy_2, a1_epi_energy_2, a2_epi_energy_2, Ed_from_tof, b_corr_manuel, beta_corr_manuel)
+
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(18, 10), sharex=True)
+
+        ax1.plot(data['E'][mask_E], data['flux_E'][mask_E], '.', markersize=4, color='purple', label='Experimental corrected 1')
+        ax1.plot(data['E'][mask_E], flux_modele_1[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 1 pure')
+        ax1.plot(data['E'][mask_E], flux_modele_1_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 1 + Epi')
+        ax1.plot(data['E'][mask_E], flux_tof_epi_converted[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.2 converti (R² = {r2_tof_epi_conv_1:.2f})')
+        ax1.set_ylabel('Flux (E)'); ax1.set_title('Energy spectrum (Linear Y)'); ax1.legend(loc='upper right', fontsize=8); ax1.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax1.set_xscale('log')
+
+        ax2.plot(data['E'][mask_E], data['flux_E2'][mask_E], '.', markersize=4, color='purple', label='Energy flux * E')
+        ax2.plot(data['E'][mask_E], flux_modele_2[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 2 pure')
+        ax2.plot(data['E'][mask_E], flux_modele_2_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 2 + Epi')
+        ax2.plot(data['E'][mask_E], (flux_tof_epi_converted * data['E'])[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.2 converti * E (R² = {r2_tof_epi_conv_2:.2f})')
+        ax2.set_ylabel('Flux (E) * E'); ax2.set_title('Corrected energy spectrum (Linear Y)'); ax2.legend(loc='upper right', fontsize=8); ax2.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax2.set_xscale('log')
+
+        ax3.plot(data['E'][mask_E], data['flux_E'][mask_E], '.', markersize=4, color='purple', label='Experimental corrected 1')
+        ax3.plot(data['E'][mask_E], flux_modele_1[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 1 pure')
+        ax3.plot(data['E'][mask_E], flux_modele_1_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 1 + Epi')
+        ax3.plot(data['E'][mask_E], flux_tof_epi_converted[mask_E], ':', color='orange', linewidth=2.5, label='Fit ToF 7.2 converti')
+        ax3.set_xlabel('Energy (eV)'); ax3.set_ylabel('Flux (E)'); ax3.set_title('Energy spectrum (Log Y)'); ax3.legend(loc='upper right', fontsize=8); ax3.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax3.set_xscale('log'); ax3.set_yscale('log'); ax3.set_ylim(bottom=np.max(data['flux_E'][mask_E]) * 1e-6)
+
+        ax4.plot(data['E'][mask_E], data['flux_E2'][mask_E], '.', markersize=4, color='purple', label='Energy flux * E')
+        ax4.plot(data['E'][mask_E], flux_modele_2[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 2 pure')
+        ax4.plot(data['E'][mask_E], flux_modele_2_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 2 + Epi')
+        ax4.plot(data['E'][mask_E], (flux_tof_epi_converted * data['E'])[mask_E], ':', color='orange', linewidth=2.5, label='Fit ToF 7.2 converti * E')
+        ax4.set_xlabel('Energy (eV)'); ax4.set_ylabel('Flux (E) * E'); ax4.set_title('Corrected energy spectrum (Log Y)'); ax4.legend(loc='upper right', fontsize=8); ax4.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax4.set_xscale('log'); ax4.set_yscale('log'); ax4.set_ylim(bottom=np.max(data['flux_E2'][mask_E]) * 1e-6)
+
+        plt.tight_layout()
+        _integrer_canvas(fig, frame)
+        return fig
 
 def plot_9(fichiers, datasets, frame=None):
     print('Calculating please wait...')
@@ -588,49 +526,16 @@ def plot_11(fichiers, datasets, thickness=0.8, atom_density=8.49e22, fichier_ref
     courbe_m1 = None      
     courbe_active = None  
     
-    # 2. Tracé du fichier de référence externe si configuré
+    # 2. Tracé du fichier de référence externe si configuré (délégué à physics.read_reference_file)
     if fichier_ref:
         try:
-            chemin_complet_ref = os.path.join("data", fichier_ref)
-            donnees_ref = np.loadtxt(chemin_complet_ref)
-            
-            if donnees_ref.ndim == 1:
-                donnees_ref = np.atleast_2d(donnees_ref)
-                
-            num_colonnes = donnees_ref.shape[1]
-            
-            if num_colonnes == 2:
-                E_ref = donnees_ref[:, 0]
-                sigma_ref = donnees_ref[:, 1]
-                unc_ref = None
-            elif num_colonnes >= 3:
-                E_ref = donnees_ref[:, 0]
-                sigma_ref = donnees_ref[:, 1]
-                unc_ref = donnees_ref[:, 2]
-            else:
-                raise ValueError("Le fichier doit contenir au moins 2 colonnes.")
-
-            # Gestion spécifique du fichier Cu_txs_ncrystal.dat
-            nom_fichier_base = os.path.basename(fichier_ref)
-            if nom_fichier_base == "Cu_txs_ncrystal.dat":
-                # Application de la correction (0.025 eV = 25 meV)
-                sigma_ref = sigma_ref + 3.78 * np.sqrt(0.025 / E_ref)
-                # L'énergie est déjà en eV, pas de multiplication par 1e-3
-                mask_ref = (E_ref >= E_min) & (E_ref <= E_max)
-                E_plot = E_ref[mask_ref]
-            else:
-                # Fichiers standards (Énergie initiale en meV)
-                mask_ref = (E_ref * 1e-3 >= E_min) & (E_ref * 1e-3 <= E_max)
-                E_plot = E_ref[mask_ref] * 1e-3
-            
+            nom_fichier_base, E_ref, sigma_ref, unc_ref, mask_ref, E_plot = read_reference_file(fichier_ref, E_min, E_max)
             if unc_ref is not None:
                 p_ref = ax.errorbar(E_plot, sigma_ref[mask_ref], yerr=unc_ref[mask_ref], 
                                      fmt='-', color='black', linewidth=1.5, label=f"Ref: {nom_fichier_base}")
                 p_ref[2][0].set_color((0, 0, 0, 0.2))
             else:
-                ax.plot(E_plot, sigma_ref[mask_ref], 
-                        '-', color='black', linewidth=1.5, label=f"Ref: {nom_fichier_base}")
-                
+                ax.plot(E_plot, sigma_ref[mask_ref], '-', color='black', linewidth=1.5, label=f"Ref: {nom_fichier_base}")
         except Exception as e:
             print(f"Impossible de lire le fichier de référence : {e}")
             
@@ -654,11 +559,8 @@ def plot_11(fichiers, datasets, thickness=0.8, atom_density=8.49e22, fichier_ref
     cross_sec_m1_raw = np.clip(cross_sec_m1_raw, 0, None)
     
     if fichier_ref and 'sigma_ref' in locals():
-        if nom_fichier_base == "Cu_txs_ncrystal.dat":
-            mask_amp_ref = (E_ref >= E_min) & (E_ref <= E_max)
-        else:
-            mask_amp_ref = (E_ref * 1e-3 >= E_min) & (E_ref * 1e-3 <= E_max)
-        amp_init = np.mean(sigma_ref[mask_amp_ref]) / np.mean(cross_sec_m1_raw[mask_E0])
+        mask_amp_ref = mask_ref
+        amp_init = compute_amp_init_from_ref(sigma_ref, mask_amp_ref, cross_sec_m1_raw, mask_E0)
     else:
         amp_init = 1.0
         
@@ -723,23 +625,11 @@ def plot_11(fichiers, datasets, thickness=0.8, atom_density=8.49e22, fichier_ref
             courbe_active = None
             
         if not cache_m2:
-            ToF_g = apply_grouping_methode2(ToF_canal, N=N_actuel)
-            flux0_g = apply_grouping_methode2(flux0_tof, N=N_actuel)
-            sample_g = apply_grouping_methode2(sample_tof, N=N_actuel)
-            
-            unc0_g = np.sqrt(np.abs(apply_grouping_methode2(unc0_tof**2, N=N_actuel) / N_actuel))
-            uncS_g = np.sqrt(np.abs(apply_grouping_methode2(uncS_tof**2, N=N_actuel) / N_actuel))
-            
-            E_g = 0.5 * masse_n * (data_flux0['meta']['path_length'] / ToF_g)**2 / eV
-            
-            with np.errstate(divide='ignore', invalid='ignore'):
-                Tr_g = sample_g / flux0_g
-                cross_sec_g = cross_section(Tr_g, thickness, atom_density)
-                
-            cross_sec_g = np.clip(cross_sec_g, 0, None)
-            unc_g = compute_cross_section_uncertainty(flux0_g, unc0_g, sample_g, uncS_g, thickness, atom_density)
-            mask_g = (E_g >= E_min) & (E_g <= E_max)
-            
+            ToF_g, E_g, cross_sec_g, unc_g, mask_g = compute_grouping_cross_section_m2(
+                ToF_canal, flux0_tof, sample_tof, unc0_tof, uncS_tof,
+                data_flux0['meta']['path_length'], N_actuel, thickness, atom_density, E_min, E_max
+            )
+
             courbe_active = ax.errorbar(E_g[mask_g], cross_sec_g[mask_g] * amp_actuelle, 
                                         yerr=unc_g[mask_g] * amp_actuelle, fmt='.-', 
                                         color=couleurs_cycle[color_index], markersize=5.5, linewidth=1,
@@ -759,24 +649,14 @@ def plot_11(fichiers, datasets, thickness=0.8, atom_density=8.49e22, fichier_ref
         N_actuel = int(slider_N.val)
         amp_actuelle = slider_amp.val
         
-        ToF_g = apply_grouping_methode2(ToF_canal, N=N_actuel)
-        flux0_g = apply_grouping_methode2(flux0_tof, N=N_actuel)
-        sample_g = apply_grouping_methode2(sample_tof, N=N_actuel)
-        unc0_g = np.sqrt(np.abs(apply_grouping_methode2(unc0_tof**2, N=N_actuel) / N_actuel))
-        uncS_g = np.sqrt(np.abs(apply_grouping_methode2(uncS_tof**2, N=N_actuel) / N_actuel))
-        E_g = 0.5 * masse_n * (data_flux0['meta']['path_length'] / ToF_g)**2 / eV
-        
-        with np.errstate(divide='ignore', invalid='ignore'):
-            Tr_g = sample_g / flux0_g
-            cross_sec_g = cross_section(Tr_g, thickness, atom_density)
-            
-        cross_sec_g = np.clip(cross_sec_g, 0, None)
-        unc_g = compute_cross_section_uncertainty(flux0_g, unc0_g, sample_g, uncS_g, thickness, atom_density)
-        mask_g = (E_g >= E_min) & (E_g <= E_max)
-        
+        ToF_g, E_g, cross_sec_g, unc_g, mask_g = compute_grouping_cross_section_m2(
+            ToF_canal, flux0_tof, sample_tof, unc0_tof, uncS_tof,
+            data_flux0['meta']['path_length'], N_actuel, thickness, atom_density, E_min, E_max
+        )
+
         nouvelle_ligne = ax.errorbar(E_g[mask_g], cross_sec_g[mask_g] * amp_actuelle, 
                                      yerr=unc_g[mask_g] * amp_actuelle, fmt='.-', 
-                                     color=courbe_active[0].get_color(), markersize=3.5, linewidth=1, alpha=0.4,
+                                     color=courbe_active[0].get_color() if courbe_active is not None else couleurs_cycle[color_index], markersize=3.5, linewidth=1, alpha=0.4,
                                      elinewidth=0.5, capsize=1, label=f"Saved Grouping N={N_actuel} (Amp={amp_actuelle:.2f})")
         
         lignes_m2.append(nouvelle_ligne)

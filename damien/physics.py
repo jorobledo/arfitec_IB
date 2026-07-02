@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import quad
 import scipy.constants as cst
+import os
+from scipy.optimize import curve_fit
 from config import PARAMS
     
 """ Constantes """
@@ -87,6 +89,235 @@ def convert_to_energy_scale(flux_tof, ToF, path_length):
     flux_E = flux_tof * jacobian
     flux_E2 = flux_E * E
     return E, flux_E, flux_E2
+
+
+def read_reference_file(fichier_ref, E_min, E_max):
+    """Lit un fichier de référence et renvoie les tableaux utiles pour tracé/comparaison.
+    Retourne: (nom_fichier_base, E_ref, sigma_ref, unc_ref, mask_ref, E_plot)
+    """
+    try:
+        chemin_complet_ref = os.path.join("data", fichier_ref)
+        donnees_ref = np.loadtxt(chemin_complet_ref)
+
+        if donnees_ref.ndim == 1:
+            donnees_ref = np.atleast_2d(donnees_ref)
+
+        num_colonnes = donnees_ref.shape[1]
+
+        if num_colonnes == 2:
+            E_ref = donnees_ref[:, 0]
+            sigma_ref = donnees_ref[:, 1]
+            unc_ref = None
+        elif num_colonnes >= 3:
+            E_ref = donnees_ref[:, 0]
+            sigma_ref = donnees_ref[:, 1]
+            unc_ref = donnees_ref[:, 2]
+        else:
+            raise ValueError("Le fichier doit contenir au moins 2 colonnes.")
+
+        nom_fichier_base = os.path.basename(fichier_ref)
+        if nom_fichier_base == "Cu_txs_ncrystal.dat":
+            sigma_ref = sigma_ref + 3.78 * np.sqrt(0.025 / E_ref)
+            mask_ref = (E_ref >= E_min) & (E_ref <= E_max)
+            E_plot = E_ref[mask_ref]
+        else:
+            mask_ref = (E_ref * 1e-3 >= E_min) & (E_ref * 1e-3 <= E_max)
+            E_plot = E_ref[mask_ref] * 1e-3
+
+        return nom_fichier_base, E_ref, sigma_ref, unc_ref, mask_ref, E_plot
+    except Exception as e:
+        raise
+
+
+def compute_cross_section_uncertainty(flux0, unc0, sample, unc_sample, thickness, atom_density):
+    """Propage l'incertitude du rapport ToF jusqu'à la section efficace."""
+    with np.errstate(divide='ignore', invalid='ignore'):
+        Tr = sample / flux0
+        dTr = np.sqrt((unc_sample / flux0)**2 + (sample * unc0 / flux0**2)**2)
+        unc_sigma = np.abs(1.0 / (atom_density * thickness) * dTr / Tr * 1e24)
+    unc_sigma = np.where(np.isfinite(unc_sigma), unc_sigma, 0.0)
+    return unc_sigma
+
+
+def compute_amp_init_from_ref(sigma_ref, mask_amp_ref, cross_sec_m1_raw, mask_E0):
+    """Calcule un facteur d'amplitude initial à partir d'une référence si présente."""
+    try:
+        num = np.mean(sigma_ref[mask_amp_ref])
+        den = np.mean(cross_sec_m1_raw[mask_E0])
+        if den == 0 or not np.isfinite(den):
+            return 1.0
+        return float(num / den)
+    except Exception:
+        return 1.0
+
+
+def compute_grouping_cross_section_m2(ToF_canal, flux0_tof, sample_tof, unc0_tof, uncS_tof, path_length, N_actuel, thickness, atom_density, E_min, E_max):
+    """Applique la méthode de regroupement 2 et retourne (ToF_g, E_g, cross_sec_g, unc_g, mask_g)."""
+    ToF_g = apply_grouping_methode2(ToF_canal, N=N_actuel)
+    flux0_g = apply_grouping_methode2(flux0_tof, N=N_actuel)
+    sample_g = apply_grouping_methode2(sample_tof, N=N_actuel)
+
+    unc0_g = np.sqrt(np.abs(apply_grouping_methode2(unc0_tof**2, N=N_actuel) / N_actuel))
+    uncS_g = np.sqrt(np.abs(apply_grouping_methode2(uncS_tof**2, N=N_actuel) / N_actuel))
+
+    E_g = 0.5 * masse_n * (path_length / ToF_g)**2 / eV
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        Tr_g = sample_g / flux0_g
+        cross_sec_g = cross_section(Tr_g, thickness, atom_density)
+
+    cross_sec_g = np.clip(cross_sec_g, 0, None)
+    unc_g = compute_cross_section_uncertainty(flux0_g, unc0_g, sample_g, uncS_g, thickness, atom_density)
+    mask_g = (E_g >= E_min) & (E_g <= E_max)
+    return ToF_g, E_g, cross_sec_g, unc_g, mask_g
+
+
+def compute_fit_results_from_dataset(data):
+    """Calcule les fits et modèles ToF/E nécessaires pour les plots 7.x.
+    Retourne un dict contenant paramètres, modèles et métriques (R², T, masques...).
+    """
+    fit_results = {}
+    t_min = PARAMS['t_min']
+    t_max = PARAMS['t_max']
+
+    p0_pure = [1e-15, 620000.0]
+
+    popt_1, pcov_1 = curve_fit(maxwell_model_tof, data['ToF'], data['flux_tof'], p0=p0_pure)
+    a0_tof_pure_1, a1_tof_pure_1 = popt_1[0], popt_1[1]
+    perr_1 = np.sqrt(np.diag(pcov_1))
+
+    mask_1 = (data['ToF'] >= t_min) & (data['ToF'] <= t_max)
+    flux_modele_1 = maxwell_model_tof(data['ToF'], a0_tof_pure_1, a1_tof_pure_1)
+    r_squared_1 = calculate_r_squared(data['flux_tof'][mask_1], flux_modele_1[mask_1])
+
+    popt_2, pcov_2 = curve_fit(maxwell_model_tof, data['ToF_grouped'], data['flux_tof_grouped'], p0=p0_pure)
+    a0_tof_pure_2, a1_tof_pure_2 = popt_2[0], popt_2[1]
+    perr_2 = np.sqrt(np.diag(pcov_2))
+
+    mask_2 = (data['ToF_grouped'] >= t_min) & (data['ToF_grouped'] <= t_max)
+    flux_modele_2 = maxwell_model_tof(data['ToF_grouped'], a0_tof_pure_2, a1_tof_pure_2)
+    r_squared_2 = calculate_r_squared(data['flux_tof_grouped'][mask_2], flux_modele_2[mask_2])
+
+    T_1 = (masse_n * data['meta']['path_length']**2) / (2 * k_b * a1_tof_pure_1 * 1e-12)
+    T_2 = (masse_n * data['meta']['path_length']**2) / (2 * k_b * a1_tof_pure_2 * 1e-12)
+
+    borne_inf_tof_epi = [0.0, 1e5, 0.0, 0.01, 0.0, 0.01]
+    borne_sup_tof_epi = [np.inf, 1e7, np.inf, 5.0, 2.0, 20.0]
+
+    p0_t_epi = [
+        np.max(data['flux_tof']) * (data['ToF'][np.argmax(data['flux_tof'])] * 1e6)**5,
+        620000.0,
+        np.mean(data['flux_tof'][-50:]),
+        0.5,
+        0.27,
+        0.921
+    ]
+
+    model_fit_lambda = lambda t, a0, a1, a2, Ed, b, beta: model_tof_epi(t, a0, a1, a2, Ed, b, beta, data['E'])
+
+    popt_epi, pcov_epi = curve_fit(model_fit_lambda, data['ToF'], data['flux_tof'], p0=p0_t_epi, bounds=(borne_inf_tof_epi, borne_sup_tof_epi))
+
+    a0_epi_1, a1_epi_1, a2_epi_1, Ed_epi_1, b_epi_1, beta_epi_1 = popt_epi
+    perr_epi_1 = np.sqrt(np.diag(pcov_epi))
+
+    flux_modele_1_epi = model_tof_epi(data['ToF'], a0_epi_1, a1_epi_1, a2_epi_1, Ed_epi_1, b_epi_1, beta_epi_1, data['E'])
+    r_squared_1_epi = calculate_r_squared(data['flux_tof'][mask_1], flux_modele_1_epi[mask_1])
+
+    T_1_epi = (masse_n * data['meta']['path_length']**2) / (2 * k_b * a1_epi_1 * 1e-12)
+
+    flux_epi_pure = model_epi_pure(data['ToF'], 5.5710*1e31, 3.2099*1e10, -12.973, 425506) / 10
+    flux_luis = flux_modele_1 + flux_epi_pure
+
+    fit_results.update({
+        'a0_tof_pure_1': a0_tof_pure_1, 'a1_tof_pure_1': a1_tof_pure_1,
+        'a0_tof_pure_2': a0_tof_pure_2, 'a1_tof_pure_2': a1_tof_pure_2,
+        'a0_epi_1': a0_epi_1, 'a1_epi_1': a1_epi_1, 'a2_epi_1': a2_epi_1,
+        'Ed_epi_1': Ed_epi_1, 'T_1_epi': T_1_epi, 'b_epi_1': b_epi_1, 'beta_epi_1': beta_epi_1,
+        'flux_modele_1': flux_modele_1, 'flux_modele_2': flux_modele_2,
+        'flux_modele_1_epi': flux_modele_1_epi, 'flux_epi_pure': flux_epi_pure, 'flux_luis': flux_luis,
+        'mask_1': mask_1, 'mask_2': mask_2,
+        'T_1': T_1, 'T_2': T_2,
+        'r_squared_1': r_squared_1, 'r_squared_2': r_squared_2, 'r_squared_1_epi': r_squared_1_epi
+    })
+
+    return fit_results
+
+
+def compute_plot8_models(data, fit_results=None):
+    """Calcule les modèles et conversions nécessaires pour les plots 8.x.
+    Si `fit_results` (temporal) est fourni, convertit aussi les modèles ToF -> E.
+    Retourne un dict avec clés : flux_modele_1, flux_modele_2, jacobian, flux_tof_pure_converted, flux_tof_epi_converted, masks, et paramètres T, R².
+    """
+    E_min = PARAMS['E_min']
+    E_max = PARAMS['E_max']
+
+    mask_E = (data['E'] >= E_min) & (data['E'] <= E_max)
+    mask_epi = (data['E'] >= 0.4) & (data['E'] <= E_max)
+
+    borne_inf = [0.0, 5.8]
+    borne_sup = [np.inf, 232.0]
+
+    E_joules_all = data['E'] * eV
+    jacobian = 0.5 * data['meta']['path_length'] * np.sqrt(masse_n / (2 * E_joules_all**3))
+
+    p0_1 = [np.max(data['flux_E']) / np.max(data['E']), 1 / (k_b / eV * 300)]
+    popt_1, pcov_1 = curve_fit(maxwell_model_E, data['E'][mask_E], data['flux_E'][mask_E], p0=p0_1, bounds=(borne_inf, borne_sup))
+    a0_best_1, a1_best_1 = popt_1[0], popt_1[1]
+    perr_1 = np.sqrt(np.diag(pcov_1))
+
+    flux_modele_1 = maxwell_model_E(data['E'], a0_best_1, a1_best_1)
+    r_squared_1 = calculate_r_squared(data['flux_E'][mask_E], flux_modele_1[mask_E])
+    T_1 = 1 / (k_b / eV * a1_best_1)
+
+    p0_2 = [np.max(data['flux_E2']) / np.max(data['E']), 1 / (k_b / eV * 300)]
+    popt_2, pcov_2 = curve_fit(maxwell_model_E_corr, data['E'][mask_E], data['flux_E2'][mask_E], p0=p0_2, bounds=(borne_inf, borne_sup))
+    a0_best_2, a1_best_2 = popt_2[0], popt_2[1]
+
+    flux_modele_2 = maxwell_model_E_corr(data['E'], a0_best_2, a1_best_2)
+    r_squared_2 = calculate_r_squared(data['flux_E2'][mask_E], flux_modele_2[mask_E])
+    T_2 = 1 / (k_b / eV * a1_best_2)
+
+    out = {
+        'flux_modele_1': flux_modele_1,
+        'flux_modele_2': flux_modele_2,
+        'jacobian': jacobian,
+        'mask_E': mask_E,
+        'mask_epi': mask_epi,
+        'T_1': T_1,
+        'T_2': T_2,
+        'r_squared_1': r_squared_1,
+        'r_squared_2': r_squared_2
+    }
+
+    # Expose fitted parameters for possible downstream use
+    out['a0_best_1'] = a0_best_1
+    out['a1_best_1'] = a1_best_1
+    out['a0_best_2'] = a0_best_2
+    out['a1_best_2'] = a1_best_2
+
+    if fit_results is not None:
+        a0_tof = fit_results.get('a0_tof_pure_1')
+        a1_tof = fit_results.get('a1_tof_pure_1')
+        if a0_tof is not None and a1_tof is not None:
+            flux_tof_pure_poly = maxwell_model_tof(data['ToF'], a0_tof, a1_tof)
+            flux_tof_pure_converted = flux_tof_pure_poly * jacobian
+            out['flux_tof_pure_converted'] = flux_tof_pure_converted
+
+        # If epithermal temporal params exist, convert them too
+        try:
+            a0_from_tof = fit_results['a0_epi_1']
+            a1_from_tof = fit_results['a1_epi_1']
+            a2_from_tof = fit_results['a2_epi_1']
+            Ed_from_tof = fit_results['Ed_epi_1']
+            b_from_tof = fit_results['b_epi_1']
+            beta_from_tof = fit_results['beta_epi_1']
+            flux_tof_epi_pure = model_tof_epi(data['ToF'], a0_from_tof, a1_from_tof, a2_from_tof, Ed_from_tof, b_from_tof, beta_from_tof, data['E'])
+            flux_tof_epi_converted = flux_tof_epi_pure * jacobian
+            out['flux_tof_epi_converted'] = flux_tof_epi_converted
+        except KeyError:
+            pass
+
+    return out
 
 def fit_maxwellian_grid_search(ToF, flux, path_length):
     """Détermine la meilleure température par moindres carrés (incréments de 5K)."""
