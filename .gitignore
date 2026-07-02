@@ -5,3 +5,6 @@ badfile*
 *.dat
 *.pkl
 *.pyc
+*__pycache__/
+*.vscode*
+.DS_Store

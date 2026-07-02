@@ -1,0 +1,101 @@
+DEFINE INSTRUMENT test_union()
+
+DECLARE 
+%{
+%}
+
+INITIALIZE 
+%{
+// Start of initialize for generated colimador
+%}
+
+TRACE 
+
+COMPONENT init = Union_init()
+AT (0,0,0) ABSOLUTE
+
+COMPONENT air_process = NCrystal_process(
+ cfg = "gasmix::air/25C/1.0atm/0.30relhumidity")
+AT (0,0,0) ABSOLUTE
+
+COMPONENT bi_scatter = NCrystal_process(
+ cfg = "Bi_sg166.ncmat;temp=300K", packing_factor = 1,
+ interact_fraction = 1)
+AT (0,0,0) ABSOLUTE
+
+COMPONENT bi_mat = Union_make_material(
+ process_string = "bi_scatter", my_absorption = 0.095)
+AT (0,0,0) ABSOLUTE
+
+COMPONENT cad_mat = Union_make_material(
+ process_string = "bi_scatter", my_absorption = 10230)
+AT (0,0,0) ABSOLUTE
+
+COMPONENT air = Union_make_material(
+ process_string = "air_process", my_absorption = 0.00726555,
+ refraction_SLD = 4.15904E-09)
+AT (0,0,0) ABSOLUTE
+
+// COMPONENT source = Source_Maxwell_3(
+//  size = 0.13, yheight = 0.12,
+//  xwidth = 0.12, Lmin = 0.286014,
+//  Lmax = 9.04457, dist = 1.0,
+//  focus_xw = 0.05, focus_yh = 0.05,
+//  T1 = 321.8, I1 = 1E+11)
+// AT (0,0,0) ABSOLUTE
+
+COMPONENT source = Source_simple(radius = 0.05, dist = 1.0, focus_xw = 0.05, focus_yh = 0.05, E0=1000, dE=990)
+AT (0,0,0) ABSOLUTE
+
+COMPONENT sample_arm = Arm()
+AT (0,0,0.5) ABSOLUTE
+ROTATED (0,0,0) ABSOLUTE
+
+COMPONENT Cd_sheet = Union_box(
+    xwidth=0.2,
+    yheight=0.2,
+    zdepth=0.001,
+    priority = 101,
+    material_string = "cad_mat"
+)
+AT (0,0,0) RELATIVE sample_arm
+
+COMPONENT bi_sample = Union_cylinder(
+  yheight=0.01,
+  radius=0.1,
+  priority = 100,
+  material_string = "bi_mat")
+AT (0,0,0.0011) RELATIVE Cd_sheet
+ROTATED (90,0,0) RELATIVE sample_arm
+
+COMPONENT detector_arm = Arm()
+AT (0,0,1.0) ABSOLUTE
+ROTATED (0,0,0) ABSOLUTE
+
+COMPONENT master = Union_master(
+ allow_inside_start = 1)
+AT (0,0,0) ABSOLUTE
+
+COMPONENT stop = Union_stop()
+AT (0,0,0) ABSOLUTE
+
+COMPONENT Emon2 = E_monitor(
+ nE = 500, filename = "Emon2.dat",
+ xwidth = 0.5, yheight = 0.5,
+ Emin = 1, Emax = 2000,
+ restore_neutron = 1)
+AT (0,0,0) RELATIVE detector_arm
+
+COMPONENT PSD2 = PSD_monitor(
+ nx = 100, ny = 100,
+ filename = "PSD2.dat", xwidth = 0.5,
+ yheight = 0.5, restore_neutron = 1)
+AT (0,0,1E-3) RELATIVE PREVIOUS
+
+
+FINALLY 
+%{
+// Start of finally for generated colimador
+%}
+
+END
