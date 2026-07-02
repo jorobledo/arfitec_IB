@@ -588,6 +588,7 @@ def plot_11(fichiers, datasets, thickness=0.8, atom_density=8.49e22, fichier_ref
     courbe_m1 = None      
     courbe_active = None  
     
+    # 2. Tracé du fichier de référence externe si configuré
     if fichier_ref:
         try:
             chemin_complet_ref = os.path.join("data", fichier_ref)
@@ -609,15 +610,26 @@ def plot_11(fichiers, datasets, thickness=0.8, atom_density=8.49e22, fichier_ref
             else:
                 raise ValueError("Le fichier doit contenir au moins 2 colonnes.")
 
-            mask_ref = (E_ref * 1e-3 >= E_min) & (E_ref * 1e-3 <= E_max)
+            # Gestion spécifique du fichier Cu_txs_ncrystal.dat
+            nom_fichier_base = os.path.basename(fichier_ref)
+            if nom_fichier_base == "Cu_txs_ncrystal.dat":
+                # Application de la correction (0.025 eV = 25 meV)
+                sigma_ref = sigma_ref + 3.78 * np.sqrt(0.025 / E_ref)
+                # L'énergie est déjà en eV, pas de multiplication par 1e-3
+                mask_ref = (E_ref >= E_min) & (E_ref <= E_max)
+                E_plot = E_ref[mask_ref]
+            else:
+                # Fichiers standards (Énergie initiale en meV)
+                mask_ref = (E_ref * 1e-3 >= E_min) & (E_ref * 1e-3 <= E_max)
+                E_plot = E_ref[mask_ref] * 1e-3
             
             if unc_ref is not None:
-                p_ref = ax.errorbar(E_ref[mask_ref] * 1e-3, sigma_ref[mask_ref], yerr=unc_ref[mask_ref], 
-                                     fmt='-', color='black', linewidth=1.5, label=f"Ref: {fichier_ref}")
+                p_ref = ax.errorbar(E_plot, sigma_ref[mask_ref], yerr=unc_ref[mask_ref], 
+                                     fmt='-', color='black', linewidth=1.5, label=f"Ref: {nom_fichier_base}")
                 p_ref[2][0].set_color((0, 0, 0, 0.2))
             else:
-                ax.plot(E_ref[mask_ref] * 1e-3, sigma_ref[mask_ref], 
-                        '-', color='black', linewidth=1.5, label=f"Ref: {fichier_ref}")
+                ax.plot(E_plot, sigma_ref[mask_ref], 
+                        '-', color='black', linewidth=1.5, label=f"Ref: {nom_fichier_base}")
                 
         except Exception as e:
             print(f"Impossible de lire le fichier de référence : {e}")
@@ -642,7 +654,10 @@ def plot_11(fichiers, datasets, thickness=0.8, atom_density=8.49e22, fichier_ref
     cross_sec_m1_raw = np.clip(cross_sec_m1_raw, 0, None)
     
     if fichier_ref and 'sigma_ref' in locals():
-        mask_amp_ref = (E_ref * 1e-3 >= E_min) & (E_ref * 1e-3 <= E_max)
+        if nom_fichier_base == "Cu_txs_ncrystal.dat":
+            mask_amp_ref = (E_ref >= E_min) & (E_ref <= E_max)
+        else:
+            mask_amp_ref = (E_ref * 1e-3 >= E_min) & (E_ref * 1e-3 <= E_max)
         amp_init = np.mean(sigma_ref[mask_amp_ref]) / np.mean(cross_sec_m1_raw[mask_E0])
     else:
         amp_init = 1.0

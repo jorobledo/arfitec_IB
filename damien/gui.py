@@ -829,6 +829,48 @@ class NeutronApp:
             
             self.update_live_zoom()
             
+            # --- CONFIGURATION AUTOMATIQUE HAUTE PRÉCISION DES CURSEURS Y ---
+            # --- CONFIGURATION AUTOMATIQUE AVEC CURSEURS CENTRÉS AU MILIEU ---
+            if hasattr(self, 'current_fig') and self.current_fig.axes:
+                ax_auto = self.current_fig.axes[0]
+                ymin_auto, ymax_auto = ax_auto.get_ylim()
+                
+                # 1. Désactivation temporaire du verrouillage Y
+                self.apply_y_limits = False 
+                
+                # 2. Calcul de la plage de données réelle du graphique
+                plage = ymax_auto - ymin_auto
+                if plage <= 0: 
+                    plage = 1.0
+                
+                # Un pas ultra-fin basé sur la nouvelle grande plage de déplacement
+                pas_haute_precision = (plage * 2) / 2000.0  
+                
+                # 3. Détection et centrage individuel de chaque curseur au milieu (50%) de sa course
+                def reconfigurer_les_sliders(parent):
+                    for child in parent.winfo_children():
+                        if isinstance(child, tk.Scale):
+                            try:
+                                var_liee = str(child.cget('variable'))
+                                if var_liee == str(self.display_y_min):
+                                    # Valeur initiale ymin_auto placée exactement au centre
+                                    child.configure(from_=ymin_auto - plage, to=ymin_auto + plage, resolution=pas_haute_precision, digits=7)
+                                elif var_liee == str(self.display_y_max):
+                                    # Valeur initiale ymax_auto placée exactement au centre
+                                    child.configure(from_=ymax_auto - plage, to=ymax_auto + plage, resolution=pas_haute_precision, digits=7)
+                            except Exception:
+                                pass
+                        if child.winfo_children():
+                            reconfigurer_les_sliders(child)
+
+                # Applique la reconfiguration physique
+                reconfigurer_les_sliders(self.root)
+                
+                # 4. Injection des valeurs initiales
+                self.display_y_min.set(ymin_auto)
+                self.display_y_max.set(ymax_auto)
+
+            # (Ligne existante dans ton code)
             if not self.is_replaying:
                 self.add_to_history(choix, fichiers)
 
@@ -913,6 +955,7 @@ class NeutronApp:
         canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         self.current_fig = fig
+        self.apply_y_limits = False
         
     def action_grouper_fichiers(self):
         """Déclenche l'ouverture de l'explorateur pour le groupement de fichiers (Option 98)"""
@@ -1100,11 +1143,9 @@ class NeutronApp:
         tk.Button(btn_frame, text="Cancel", command=export_win.destroy, bg="#7f8c8d", fg="white", font=("Segoe UI", 9), bd=0, padx=10, pady=4).pack(side=tk.LEFT, padx=5)
         
     def validate_ranges(self):
-
         # ===============================
-        # TOF
+        # TOF (Conservés)
         # ===============================
-    
         tmin = max(0, min(self.display_t_min.get(), 5000))
         tmax = max(0, min(self.display_t_max.get(), 5000))
     
@@ -1115,9 +1156,8 @@ class NeutronApp:
         self.display_t_max.set(tmax)
     
         # ===============================
-        # ENERGY
+        # ENERGY (Conservés)
         # ===============================
-    
         emin = max(0.001, min(self.display_E_min.get(), 0.01))
         emax = max(0.01, min(self.display_E_max.get(), 2))
     
@@ -1128,63 +1168,48 @@ class NeutronApp:
         self.display_E_max.set(emax)
 
         # ===============================
-        # Y
+        # Y AXIS INTELLIGENT
         # ===============================
-        ymin = max(0.0, min(self.display_y_min.get(), 1000.0))
-        ymax = max(0.1, min(self.display_y_max.get(), 1000.0))
+        ymin = self.display_y_min.get()
+        ymax = self.display_y_max.get()
 
         if ymin >= ymax:
-            ymin = max(0.0, ymax * 0.5)
+            ymin = ymax * 0.99
 
         self.display_y_min.set(ymin)
-        self.display_y_max.set(ymax)
+        self.display_y_max.set(ymax)        
 
     def on_change_y_limits(self, val=None):
         self.apply_y_limits = True
         self.update_live_zoom(val)
 
     def update_live_zoom(self, val=None):
-
-        if not hasattr(self, 'current_fig'):
-            return
-
-        if self.current_fig is None:
+        if not hasattr(self, 'current_fig') or self.current_fig is None:
             return
 
         try:
-
-            # ==========================
-            # Validation
-            # ==========================
-
             self.validate_ranges()
 
             tmin = self.display_t_min.get()
             tmax = self.display_t_max.get()
-
             emin = self.display_E_min.get()
             emax = self.display_E_max.get()
             ymin = self.display_y_min.get()
             ymax = self.display_y_max.get()
 
-            # ==========================
-            # Apply limits
-            # ==========================
-
             for ax in self.current_fig.axes:
-
                 xlabel = ax.get_xlabel().lower()
 
                 if "time" in xlabel or "tof" in xlabel:
                     ax.set_xlim(tmin, tmax)
-
                 elif "energy" in xlabel or "ev" in xlabel:
                     ax.set_xlim(emin, emax)
 
-                if self.apply_y_limits:
+                # Applique les limites Y seulement si l'utilisateur a bougé un curseur Y
+                if getattr(self, 'apply_y_limits', False):
                     ax.set_ylim(ymin, ymax)
 
             self.current_fig.canvas.draw_idle()
 
         except Exception as e:
-            print(e)
+            print(f"Erreur update_live_zoom : {e}")
