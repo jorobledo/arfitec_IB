@@ -80,13 +80,13 @@ class NeutronApp:
         
         # Colors of our modern design system
         BG_DARK = "#2c3e50"      # Dark slate blue for left panel
-        TEXT_LIGHT = "#ffffff"   # Pure white for left panel text
+        TEXT_LIGHT = "#d3d3d3"   # Light gray for left panel text
         FONT_MAIN = ("Segoe UI", 10)
         FONT_BOLD = ("Segoe UI", 11, "bold")
         
         # Tab configuration
         self.style.configure("TNotebook.Tab", background="#95a5a6", foreground="black", padding=[18, 6], font=("Segoe UI", 10))
-        self.style.map("TNotebook.Tab", background=[("selected", "#34495e")], foreground=[("selected", "white")], font=[("selected", ("Segoe UI", 10, "bold"))])
+        self.style.map("TNotebook.Tab", background=[("selected", "#34495e")], foreground=[("selected", "#d3d3d3")], font=[("selected", ("Segoe UI", 10, "bold"))])
 
         # DATA STORAGE & CACHE
         # --------------------------------------------------
@@ -315,7 +315,7 @@ class NeutronApp:
             self.control_frame,
             text="Display Limits",
             bg=BG_DARK,
-            fg="white",
+            fg="#d3d3d3",
             font=FONT_BOLD
         )
         
@@ -636,7 +636,7 @@ class NeutronApp:
             text="Apply and Save Parameters",
             command=self.save_physical_parameters,
             bg="#2ecc71",
-            fg="white",
+            fg="#d3d3d3",
             font=("Segoe UI", 11, "bold"),
             padx=15,
             pady=5, bd=0, cursor="hand2"
@@ -679,7 +679,7 @@ class NeutronApp:
             text="Copy Results to Clipboard",
             command=self.copy_stats_to_clipboard,
             bg="#34495e",
-            fg="white",
+            fg="#d3d3d3",
             font=("Segoe UI", 11, "bold"),
             padx=15,
             pady=5,
@@ -1405,8 +1405,8 @@ class NeutronApp:
         btn_frame = tk.Frame(export_win)
         btn_frame.pack(pady=15)
         
-        tk.Button(btn_frame, text="Export Selection", command=trigger_save, bg="#2ecc71", fg="white", font=("Segoe UI", 9, "bold"), bd=0, padx=10, pady=4).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="Cancel", command=export_win.destroy, bg="#7f8c8d", fg="white", font=("Segoe UI", 9), bd=0, padx=10, pady=4).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Export Selection", command=trigger_save, bg="#2ecc71", fg="#d3d3d3", font=("Segoe UI", 9, "bold"), bd=0, padx=10, pady=4).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Cancel", command=export_win.destroy, bg="#7f8c8d", fg="#d3d3d3", font=("Segoe UI", 9), bd=0, padx=10, pady=4).pack(side=tk.LEFT, padx=5)
         
     def validate_ranges(self):
         # ===============================
