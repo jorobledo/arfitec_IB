@@ -27,7 +27,7 @@ from plot import (
     plot_12
 )
 
-# Correction de l'import (retrait du .py)
+# Import correction (removal of .py)
 from utils import (
     grouped_file
 )
@@ -78,22 +78,21 @@ class NeutronApp:
         self.style = ttk.Style()
         self.style.theme_use("clam")
         
-        # Couleurs de notre charte graphique moderne
-        BG_DARK = "#2c3e50"      # Bleu ardoise foncé pour le panneau gauche
-        TEXT_LIGHT = "#ffffff"   # Blanc pur pour les textes du panneau gauche
+        # Colors of our modern design system
+        BG_DARK = "#2c3e50"      # Dark slate blue for left panel
+        TEXT_LIGHT = "#ffffff"   # Pure white for left panel text
         FONT_MAIN = ("Segoe UI", 10)
         FONT_BOLD = ("Segoe UI", 11, "bold")
         
-        # Configuration des onglets
+        # Tab configuration
         self.style.configure("TNotebook.Tab", background="#95a5a6", foreground="black", padding=[18, 6], font=("Segoe UI", 10))
         self.style.map("TNotebook.Tab", background=[("selected", "#34495e")], foreground=[("selected", "white")], font=[("selected", ("Segoe UI", 10, "bold"))])
 
-        # --------------------------------------------------
         # DATA STORAGE & CACHE
         # --------------------------------------------------
         self.datasets = {}
         self.fit_results = None
-        self.plot_history = []  
+        self.plot_history = []  # Plot history for replay
         self.is_replaying = False
 
         # ==================================================
@@ -121,7 +120,7 @@ class NeutronApp:
         self.tab_analysis.grid_columnconfigure(1, weight=1) 
         self.tab_analysis.grid_rowconfigure(0, weight=1)
 
-        # 1. Le panneau de contrôle gauche (Style Sombre & Contrasté)
+        # 1. Left control panel (Dark Style & High Contrast)
         self.control_frame = tk.Frame(
             self.tab_analysis,
             width=280,
@@ -130,16 +129,16 @@ class NeutronApp:
         self.control_frame.pack_propagate(False)
         self.control_frame.grid(row=0, column=0, sticky="nsw")
 
-        # 2. La zone graphique droite
+        # 2. Right graphical area
         self.plot_frame_container = tk.Frame(self.tab_analysis, bg="#ffffff")
         self.plot_frame_container.grid(row=0, column=1, sticky="nsew")
         
-        # Découpe de la zone droite pour intégrer la barre d'historique en haut
-        self.plot_frame_container.grid_rowconfigure(0, weight=0) # Barre du haut (Historique)
-        self.plot_frame_container.grid_rowconfigure(1, weight=1) # Graphique
+        # Split the right area to integrate history bar at the top
+        self.plot_frame_container.grid_rowconfigure(0, weight=0) # Top bar (History)
+        self.plot_frame_container.grid_rowconfigure(1, weight=1) # Graph
         self.plot_frame_container.grid_columnconfigure(0, weight=1)
 
-        # BARRE SUPÉRIEURE DROITE : Menu déroulant de l'historique
+        # TOP RIGHT BAR: History dropdown menu
         self.top_bar = tk.Frame(self.plot_frame_container, bg="#f8f9fa", height=40, bd=1, relief=tk.RIDGE)
         self.top_bar.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
         
@@ -151,24 +150,23 @@ class NeutronApp:
         self.history_combobox.set("No history yet")
         self.history_combobox.bind("<<ComboboxSelected>>", self.replay_plot_from_history)
 
-        # La zone réelle où matplotlib va dessiner
+        # Actual area where matplotlib will draw
         self.plot_frame = tk.Frame(self.plot_frame_container, bg="#ffffff")
         self.plot_frame.grid(row=1, column=0, sticky="nsew")
 
         # ==================================================
-        # PANNEAU GAUCHE : TITRE
+        # LEFT PANEL: TITLE
         # ==================================================
         self.title_label = tk.Label(
             self.control_frame,
             text="NEUTRON ANALYSIS",
             font=("Segoe UI", 14, "bold"),
             bg=BG_DARK,
-            fg="#f1c40f" # Jaune lumineux pour un contraste parfait
+            fg="#f1c40f" # Bright yellow for perfect contrast
         )
         self.title_label.pack(pady=(25, 15))
 
-        # ==================================================
-        # PANNEAU GAUCHE : BOUTONS DE CHARGEMENT
+        # LEFT PANEL: LOAD BUTTONS
         # ==================================================
         self.load_button = tk.Button(
             self.control_frame,
@@ -196,8 +194,7 @@ class NeutronApp:
         )
         self.clear_cache_button.pack(pady=(2, 15))
 
-        # ==================================================
-        # PANNEAU GAUCHE : LISTE DES FICHIERS
+        # LEFT PANEL: FILE LIST
         # ==================================================
         self.file_label = tk.Label(
             self.control_frame,
@@ -226,8 +223,7 @@ class NeutronApp:
         self.ordre_selection = []
         self.file_listbox.bind('<<ListboxSelect>>', self.maj_ordre_selection)
 
-        # ==================================================
-        # PANNEAU GAUCHE : CHOIX DU PLOT
+        # LEFT PANEL: PLOT SELECTION
         # ==================================================
         self.plot_label = tk.Label(
             self.control_frame,
@@ -238,32 +234,32 @@ class NeutronApp:
         )
         self.plot_label.pack(pady=(15, 2))
 
-        # Variable pour stocker le tracé actuellement sélectionné
-        self.selected_plot_id = "1"  # Valeur par défaut
+        # Variable to store currently selected plot
+        self.selected_plot_id = "1"  # Default value
         self.selected_plot_label = tk.StringVar(value="1 - Grouping Comparison")
 
-        # Bouton principal qui va déclencher l'ouverture du menu
+        # Main button that will trigger menu opening
         self.select_plot_button = tk.Button(
             self.control_frame,
             textvariable=self.selected_plot_label,
             command=self.show_analysis_menu,
             font=("Segoe UI", 9, "bold"),
             bg="#34495e",
-            fg="#f1c40f", # Jaune pour indiquer que c'est une action importante
+            fg="#f1c40f", # Yellow to indicate important action
             activebackground="#5d6d7e",
             activeforeground="#f1c40f",
             bd=1, relief="raised", height=2, width=26, cursor="hand2"
         )
         self.select_plot_button.pack(pady=5)
 
-        # Création du menu racine invisible en mémoire
+        # Create invisible root menu in memory
         self.analysis_menu = Menu(self.root, tearoff=0)
 
-        # 1er sous-menu : ToF Experiment
+        # 1st submenu: ToF Experiment
         self.tof_submenu = Menu(self.analysis_menu, tearoff=0)
         self.analysis_menu.add_cascade(label="Time-of-Flight (ToF) Experiment", menu=self.tof_submenu)
         
-        # Ajout des options ToF existantes
+        # Add existing ToF options
         tof_options = [
             ("1 - Grouping Comparison", "1"),
             ("2 - Dead Time Correction", "2"),
@@ -286,7 +282,7 @@ class NeutronApp:
                 command=lambda l=label, i=p_id: self._set_current_analysis(l, i)
             )
 
-        # 2e sous-menu : NAA Experiment
+        # 2nd submenu: NAA Experiment
         self.naa_submenu = Menu(self.analysis_menu, tearoff=0)
         self.analysis_menu.add_cascade(label="Neutron Activation Analysis (NAA)", menu=self.naa_submenu)
         
@@ -302,8 +298,7 @@ class NeutronApp:
                 command=lambda l=label, i=p_id: self._set_current_analysis(l, i)
             )
 
-        # ==================================================
-        # PANNEAU GAUCHE : ACTIONS COMPACTES ET DISTINCTES
+        # LEFT PANEL: COMPACT AND DISTINCT ACTIONS
         # ==================================================
         self.btn_frame = tk.Frame(self.control_frame, bg=BG_DARK)
         self.btn_frame.pack(pady=20)

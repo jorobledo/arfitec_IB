@@ -6,7 +6,7 @@ import os
 from scipy.optimize import curve_fit
 from config import PARAMS
     
-""" Constantes """
+""" Constants """
 
 Na = cst.Avogadro 
 R_gaz = cst.R
@@ -26,7 +26,7 @@ E_max = PARAMS['E_max']
 
 
 def load_metadata(fichier):
-    """Extrait les paramètres d'en-tête du fichier de données."""
+    """Extract header parameters from data file."""
     props = {}
     with open(fichier, "r") as f:
         for ligne in f:
@@ -38,30 +38,30 @@ def load_metadata(fichier):
 
 
 def apply_dead_time_correction(counts, dead_time, nbr_frames, channel_width):
-    """Corrige le déficit de comptage dû au temps mort du détecteur."""
+    """Corrects counting deficit due to detector dead time."""
     return counts / (1 - counts * dead_time / (nbr_frames * channel_width))
 
 
 def remove_background(counts, n_pts=100):
-    """Calcule et soustrait le bruit de fond moyen mesuré sur les derniers canaux."""
+    """Calculates and subtracts average background measured on last channels."""
     bg = np.mean(counts[-n_pts:])
     return counts - bg
 
 
 def apply_grouping_methode1(flux, M=20):
-    """Lissage par moyenne glissante (Méthode 1)."""
+    """Smoothing by moving average (Method 1)."""
     window = np.ones(M) / M
     return np.convolve(flux, window, mode='same')
 
 
 def apply_grouping_methode2(data, N=10):
-    """Regroupement par paquets fixes (Méthode 2)."""
+    """Grouping by fixed packets (Method 2)."""
     n_ptn = (len(data) // N) * N
     return np.mean(data[:n_ptn].reshape(-1, N), axis=1)
 
 
 def compute_efficiency_tof(ToF, path_length):
-    """Calcule le vecteur d'efficacité du détecteur en fonction du ToF."""
+    """Calculates detector efficiency vector as a function of ToF."""
     def integrand(x, t):
         sigma = 848.24 * t / path_length * np.sqrt(2 * 1.6e-19 / masse_n) * 1e-24
         return np.exp(- (2 * atom_dens * sigma / np.cos(angle)) * np.sqrt(R_tube**2 - x**2))
@@ -79,11 +79,11 @@ def compute_efficiency_energy(E):
 
 
 def convert_to_energy_scale(flux_tof, ToF, path_length):
-    """Transforme le flux temporel en flux énergétique via le Jacobien."""
+    """Transforms temporal flux to energy flux via Jacobian."""
     E = 0.5 * masse_n * (path_length / ToF)**2 / eV
     E_joules = E * eV
     
-    # Calcul du Jacobien |dt/dE|
+    # Calculate Jacobian |dt/dE|
     jacobian = 0.5 * path_length * np.sqrt(masse_n / (2 * E_joules**3))
     
     flux_E = flux_tof * jacobian
@@ -92,8 +92,8 @@ def convert_to_energy_scale(flux_tof, ToF, path_length):
 
 
 def read_reference_file(fichier_ref, E_min, E_max):
-    """Lit un fichier de référence et renvoie les tableaux utiles pour tracé/comparaison.
-    Retourne: (nom_fichier_base, E_ref, sigma_ref, unc_ref, mask_ref, E_plot)
+    """Reads reference file and returns useful arrays for plotting/comparison.
+    Returns: (base_filename, E_ref, sigma_ref, unc_ref, mask_ref, E_plot)
     """
     try:
         chemin_complet_ref = os.path.join("data", fichier_ref)
@@ -113,7 +113,7 @@ def read_reference_file(fichier_ref, E_min, E_max):
             sigma_ref = donnees_ref[:, 1]
             unc_ref = donnees_ref[:, 2]
         else:
-            raise ValueError("Le fichier doit contenir au moins 2 colonnes.")
+            raise ValueError("File must contain at least 2 columns.")
 
         nom_fichier_base = os.path.basename(fichier_ref)
         if nom_fichier_base == "Cu_txs_ncrystal.dat":
@@ -130,7 +130,7 @@ def read_reference_file(fichier_ref, E_min, E_max):
 
 
 def compute_cross_section_uncertainty(flux0, unc0, sample, unc_sample, thickness, atom_density):
-    """Propage l'incertitude du rapport ToF jusqu'à la section efficace."""
+    """Propagates uncertainty from ToF ratio to cross section."""
     with np.errstate(divide='ignore', invalid='ignore'):
         Tr = sample / flux0
         dTr = np.sqrt((unc_sample / flux0)**2 + (sample * unc0 / flux0**2)**2)
@@ -140,7 +140,7 @@ def compute_cross_section_uncertainty(flux0, unc0, sample, unc_sample, thickness
 
 
 def compute_amp_init_from_ref(sigma_ref, mask_amp_ref, cross_sec_m1_raw, mask_E0):
-    """Calcule un facteur d'amplitude initial à partir d'une référence si présente."""
+    """Calculates initial amplitude factor from reference if present."""
     try:
         num = np.mean(sigma_ref[mask_amp_ref])
         den = np.mean(cross_sec_m1_raw[mask_E0])
@@ -152,7 +152,7 @@ def compute_amp_init_from_ref(sigma_ref, mask_amp_ref, cross_sec_m1_raw, mask_E0
 
 
 def compute_grouping_cross_section_m2(ToF_canal, flux0_tof, sample_tof, unc0_tof, uncS_tof, path_length, N_actuel, thickness, atom_density, E_min, E_max):
-    """Applique la méthode de regroupement 2 et retourne (ToF_g, E_g, cross_sec_g, unc_g, mask_g)."""
+    """Applies grouping method 2 and returns (ToF_g, E_g, cross_sec_g, unc_g, mask_g)."""
     ToF_g = apply_grouping_methode2(ToF_canal, N=N_actuel)
     flux0_g = apply_grouping_methode2(flux0_tof, N=N_actuel)
     sample_g = apply_grouping_methode2(sample_tof, N=N_actuel)
@@ -173,8 +173,8 @@ def compute_grouping_cross_section_m2(ToF_canal, flux0_tof, sample_tof, unc0_tof
 
 
 def compute_fit_results_from_dataset(data):
-    """Calcule les fits et modèles ToF/E nécessaires pour les plots 7.x.
-    Retourne un dict contenant paramètres, modèles et métriques (R², T, masques...).
+    """Calculates fits and models ToF/E needed for plots 7.x.
+    Returns a dict with parameters, models and metrics (R², T, masks...).
     """
     fit_results = {}
     t_min = PARAMS['t_min']
@@ -244,9 +244,9 @@ def compute_fit_results_from_dataset(data):
 
 
 def compute_plot8_models(data, fit_results=None):
-    """Calcule les modèles et conversions nécessaires pour les plots 8.x.
-    Si `fit_results` (temporal) est fourni, convertit aussi les modèles ToF -> E.
-    Retourne un dict avec clés : flux_modele_1, flux_modele_2, jacobian, flux_tof_pure_converted, flux_tof_epi_converted, masks, et paramètres T, R².
+    """Calculates models and conversions needed for plots 8.x.
+    If `fit_results` (temporal) is provided, also converts models ToF -> E.
+    Returns a dict with keys: flux_modele_1, flux_modele_2, jacobian, flux_tof_pure_converted, flux_tof_epi_converted, masks, and parameters T, R².
     """
     E_min = PARAMS['E_min']
     E_max = PARAMS['E_max']
