@@ -120,6 +120,9 @@ def read_reference_file(fichier_ref, E_min, E_max):
             sigma_ref = sigma_ref + 3.78 * np.sqrt(0.025 / E_ref)
             mask_ref = (E_ref >= E_min) & (E_ref <= E_max)
             E_plot = E_ref[mask_ref]
+        elif nom_fichier_base == "sigtot-zafiro-FCantargi.dat":
+            mask_ref = (E_ref >= E_min) & (E_ref <= E_max)
+            E_plot = E_ref[mask_ref]    
         else:
             mask_ref = (E_ref * 1e-3 >= E_min) & (E_ref * 1e-3 <= E_max)
             E_plot = E_ref[mask_ref] * 1e-3
