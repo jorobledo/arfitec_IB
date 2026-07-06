@@ -527,7 +527,7 @@ def plot_11(fichiers, datasets, fichier_ref="", frame=None):
     courbe_m1 = None      
     courbe_active = None  
     
-    # 2. Tracé du(s) fichier(s) de référence externe si configuré (délégué à physics.read_reference_file)
+    # 2. Plot external reference file(s) if configured (delegated to physics.read_reference_file)
     amps_from_refs = []
     if fichier_ref:
         # Normalize to iterable of paths

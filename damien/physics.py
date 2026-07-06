@@ -320,7 +320,7 @@ def compute_plot8_models(data, fit_results=None):
     return out
 
 def fit_maxwellian_grid_search(ToF, flux, path_length):
-    """Détermine la meilleure température par moindres carrés (incréments de 5K)."""
+    """Determines the best temperature by least squares (increments of 5K)."""
     Temp_K = np.arange(260, 400, 5)
     LSM = []
 
@@ -330,7 +330,7 @@ def fit_maxwellian_grid_search(ToF, flux, path_length):
         fact_amplitude = np.max(flux) / np.max(maxwellian)
         maxwellian_norm = maxwellian * fact_amplitude
         
-        # Calcul de l'erreur des moindres carrés (à partir du canal 20)
+        # Calculate least squares error (starting from channel 20)
         err_global = np.sum((maxwellian_norm[20:] - flux[20:])**2)
         LSM.append(err_global)
         
@@ -338,19 +338,19 @@ def fit_maxwellian_grid_search(ToF, flux, path_length):
     return Temp_K[idx_best], LSM[idx_best]
 
 def maxwell_model_tof(t, a0, a1):
-    """Modèle maxwellien pur dans l'espace temporel ToF."""
+    """Pure Maxwellian model in time-of-flight (ToF) domain."""
     return a0 / t**5 * np.exp(-a1 / (t * 1e6)**2)
 
 
 def model_tof_epi(t, a0, a1, a2, Ed, b, beta, E_array):
-    """Modèle global combinant la contribution thermique (Maxwell) et épithermique."""
+    """Global model combining thermal (Maxwell) and epithermal contribution."""
     F_M = (a0 / (t * 1e6)**5) * np.exp(-a1 / (t * 1e6)**2)
     F_E = a2 * (1 - np.exp(-(E_array / Ed)**2)) * E_array**(b - 1) * np.exp(-E_array / beta)
     return F_M + F_E
 
 
 def calculate_r_squared(y_true, y_pred):
-    """Calcule le coefficient de détermination R² pour évaluer la qualité d'un fit."""
+    """Calculate R² coefficient of determination to evaluate fit quality."""
     residus = y_true - y_pred
     ss_res = np.sum(residus**2)
     ss_tot = np.sum((y_true - np.mean(y_true))**2)
@@ -360,24 +360,24 @@ def model_epi_pure(t, a2, a3, a4, a5):
     return a2 * (1 - np.exp(-a3 / (1e6 * t)**2)) * (1e6 * t)**a4 * np.exp(-a5 / (1e6 * t)**2)
 
 def maxwell_model_E(E, a0, a1):
-    """Modèle maxwellien standard dans l'espace énergétique."""
+    """Standard Maxwellian model in energy domain."""
     return a0 * E * np.exp(-a1 * E)
 
 
 def maxwell_model_E_corr(E, a0, a1):
-    """Modèle maxwellien corrigé (multiplié par E) dans l'espace énergétique."""
+    """Corrected Maxwellian model (multiplied by E) in energy domain."""
     return a0 * E**2 * np.exp(-a1 * E)
 
 
 def maxwell_epi_analytique_E(E, a0, a1, a2, Ed, b_param, beta_param):
-    """Modèle global (Thermique + Épithermique) pour le spectre de flux en énergie Flux(E)."""
+    """Global model (Thermal + Epithermal) for flux spectrum in energy Flux(E)."""
     F_M = a0 * E * np.exp(-a1 * E)
     F_E = a2 * (1 - np.exp(-(E / Ed)**2)) * E**(b_param - 1) * np.exp(-E / beta_param)
     return F_M + F_E
 
 
 def maxwell_epi_analytique_E_corr(E, a0, a1, a2, Ed, b_param, beta_param):
-    """Modèle global (Thermique + Épithermique) pour le spectre corrigé Flux(E) * E."""
+    """Global model (Thermal + Epithermal) for corrected spectrum Flux(E) * E."""
     F_M = a0 * E**2 * np.exp(-a1 * E)
     F_E = a2 * (1 - np.exp(-(E / Ed)**2)) * E**b_param * np.exp(-E / beta_param)
     return F_M + F_E
@@ -392,8 +392,8 @@ def cross_section(Tr, d, n):
 
 
 def process_neutron_data(fichier):
-    """Exécute l'intégralité de la chaîne de traitement pour un fichier donné."""
-    # 1. Chargement du fichier et des métadonnées
+    """Execute the entire processing pipeline for a given file."""
+    # 1. File loading and metadata
     meta = load_metadata(fichier)
     channels, counts = np.loadtxt(fichier, skiprows=15, unpack=True)
     
@@ -408,10 +408,10 @@ def process_neutron_data(fichier):
     therm_norm_flux = therm_counts / meta['nbr_frames']
     unc_normalisee = np.sqrt(counts) / meta['nbr_frames']
     
-    # 3. Calcul de la cinétique temporelle (ToF)
+    # 3. Calculate time kinetics (ToF)
     ToF = (meta['channel_width'] * channels * 1e-6) - ED
     
-    # 4. Lissage et correction d'efficacité (Espace Temporel)
+    # 4. Smoothing and efficiency correction (Time Domain)
     flux_lisse = apply_grouping_methode1(flux_normalise)
     mean_therm_norm_flux = apply_grouping_methode1(therm_norm_flux)
     eff_ToF = compute_efficiency_tof(ToF, meta['path_length'])
@@ -419,7 +419,7 @@ def process_neutron_data(fichier):
     flux_final_tof = flux_lisse / eff_ToF
     unc_flux_reelle = unc_normalisee / eff_ToF
     
-    # 5. Méthode de regroupement 2 (Paquets de 10)
+    # 5. Grouping method 2 (Packets of 10)
     flux_grouped = apply_grouping_methode2(flux_normalise)
     channels_grouped = apply_grouping_methode2(channels)
     ToF_grouped = apply_grouping_methode2(ToF)
@@ -427,11 +427,11 @@ def process_neutron_data(fichier):
     
     flux_tof_grouped = apply_grouping_methode2(flux_final_tof)
     
-    # 6. Changement de variable vers l'Espace Énergétique
+    # 6. Change of variable to Energy Domain
     E, flux_E, flux_E2 = convert_to_energy_scale(flux_final_tof, ToF, meta['path_length'])
     eff_E = compute_efficiency_energy(E)
     
-    # Dictionnaire de sortie nettoyé
+    # Clean output dictionary
     return {
         'meta': meta,
         'channels': channels,
