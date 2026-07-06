@@ -981,8 +981,9 @@ class NeutronApp:
             self.update_live_zoom()
             self._reconfigure_y_sliders() # Call to external function
             
-            if not self.is_replaying:
-                self.add_to_history(choix, fichiers)
+            # Capture current text stats content and save everything as a clean snapshot
+            current_stats = self.txt_stats.get("1.0", tk.END).strip()
+            self.add_to_history(choix, fichiers, figure_obj=self.current_fig, stats_text=current_stats)
 
         except Exception as e:
             messagebox.showerror("Plot Error", str(e))
@@ -1092,42 +1093,63 @@ class NeutronApp:
         self.update_stats_display(summary)
 
             
-    def add_to_history(self, plot_name, files):
-        """Adds a successful plot to the history dropdown menu."""
-        affichage_label = f"Plot {plot_name.split('-')[0].strip()} ({len(files)} files) - {', '.join(files[:2])}"
+    def add_to_history(self, plot_name, files, figure_obj, stats_text=""):
+        """Adds a successful plot session snapshot directly to the history memory."""
+        import datetime
+        current_time = datetime.datetime.now().strftime("%H:%M:%S")
+        
+        # Adding a timestamp ensures unique labels even with identical files
+        affichage_label = f"[{current_time}] Plot {plot_name.split('-')[0].strip()} ({len(files)} files) - {', '.join(files[:2])}"
         if len(files) > 2:
             affichage_label += "..."
 
+        # CRITICAL: We need a deep copy/unlinked snapshot of the figure to prevent overwrites
+        # We achieve this by saving the figure state temporarily or archiving it
+        import pickle
+        try:
+            # Pickle serializes the figure state, creating a completely isolated clone
+            fig_snapshot = pickle.loads(pickle.dumps(figure_obj))
+        except Exception:
+            # Fallback if pickle fails due to specific active Tkinter widget bindings
+            fig_snapshot = figure_obj
+
+        # Store the isolated snapshot and the text statistics
         self.plot_history.append({
             "nom_complet": plot_name,
             "fichiers": files,
-            "label": affichage_label
+            "label": affichage_label,
+            "figure": fig_snapshot,
+            "stats_text": stats_text
         })
         
-        # Update Combobox choices
+        # Update history dropdown selection view
         liste_labels = [item["label"] for item in self.plot_history]
         self.history_combobox.configure(values=liste_labels)
         self.history_combobox.set(affichage_label)
 
     def replay_plot_from_history(self, event):
-        """Replays the plot selected from the history combobox."""
+        """Replays the exact graphical snapshot directly from the stored Matplotlib Figure object."""
         label_selectionne = self.history_combobox.get()
         
-        # Find the corresponding item in our data
+        # Find the selected item inside the history collection
         historique_item = None
         for item in self.plot_history:
             if item["label"] == label_selectionne:
                 historique_item = item
                 break
                 
-        if not historique_item:
+        if not historique_item or "figure" not in historique_item:
             return
             
+        saved_fig = historique_item["figure"]
         nom_complet = historique_item["nom_complet"]
         fichiers_sauvegardes = historique_item["fichiers"]
         
-        self.plot_combobox.set(nom_complet)
+        # Synchronize selection text tracking variables
+        self.selected_plot_label.set(nom_complet)
+        self.selected_plot_id = nom_complet.split('-')[0].strip()
         
+        # Synchronize UI listbox file selection indicators
         self.ordre_selection = []
         self.file_listbox.selection_clear(0, tk.END)
         for f in fichiers_sauvegardes:
@@ -1135,12 +1157,26 @@ class NeutronApp:
                 if self.file_listbox.get(idx) == f:
                     self.ordre_selection.append(idx)
                     self.file_listbox.select_set(idx) 
+
+        # Wipe out old plot frame widgets to prevent overlay issues
+        for widget in self.plot_frame.winfo_children():
+            widget.destroy()
+            
+        # Re-embed the native saved Matplotlib figure container directly into the GUI
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+        canvas = FigureCanvasTkAgg(saved_fig, master=self.plot_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
-        self.is_replaying = True
-        try:
-            self.execute_plot()
-        finally:
-            self.is_replaying = False
+        # Re-attach standard navigation toolbar control elements
+        toolbar = NavigationToolbar2Tk(canvas, self.plot_frame)
+        toolbar.update()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        
+        # Update references and restore text stats snapshot if available
+        self.current_fig = saved_fig
+        if "stats_text" in historique_item:
+            self.update_stats_display(historique_item["stats_text"])
             
     def save_physical_parameters(self):
         """Converts and saves GUI inputs into the global dictionary."""
