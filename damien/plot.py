@@ -799,7 +799,7 @@ def plot_flux_energy(fichiers, datasets, frame=None):
         ax.errorbar(
             data["E"],
             data["flux_E2"],
-            yerr=data["unc_tof"],  # Propagated uncertainty vector tracking
+            yerr=data["unc_E2"],  # Propagated uncertainty vector tracking
             fmt='-',
             linewidth=1.5,
             elinewidth=0.8,
