@@ -1,34 +1,49 @@
 import numpy as np
 
-def get_lambda(t_half=2.5785):
-    """Calcule la constante de déchéance (s^-1). t_half: période en heures."""
-    return np.log(2) / (t_half * 3600)
+# Nuclear, physical and experimental constants for Mn-55/Mn-56
+PARAMS = {
+    "N_A": 6.02214076e23, # Avogadro constant (mol^-1)
+    'm': 0.0,             # Mass of the sample (g)
+    "M": 54.938,          # Molar mass of Manganese (g/mol)
+    "t_half": 2.5785,     # Radioactive half-life of Mn-56 (hours)
+    "y": 0.989,           # Gamma emission intensity / yield (846.77 keV)
+    "C": 1.0,             # Concentration of element in target
+    "eps": 1.0,           # Detector efficiency for this energy
+    "eta": 1.0,           # Isotopic abundance of Mn-55
+    "F_Cd": 1.0,          # Cadmium correction factor
+    "G_th": 0.984,        # Thermal self-shielding factor
+    "G_epi": 0.744,       # Epithermal self-shielding factor
+    "sig_th": 13.3e-24,   # Fictitious thermal cross section (cm^2)
+    "sig_epi": 14.0e-24   # Epithermal cross section / Resonance integral (cm^2)
+}
 
-def get_R(counts, m, t_i, t_d, t_m, M=54.938, C=1.0, y=0.989, eps=1.0, eta=1.0):
+def get_lambda():
+    """Calculates the decay constant (s^-1) from t_half."""
+    return np.log(2) / (PARAMS["t_half"] * 3600)
+
+def get_R(counts, t_i, t_d, t_m):
     """
-    Calcule le taux de réaction R[cite: 1].
-    counts: comptes nets, m: masse (g), t_x: temps d'irradiation/décroissance/mesure (s)[cite: 1]
-    M: masse molaire, C: concentration, y: rendement, eps: efficacité, eta: abondance[cite: 1]
+    Calculates the reaction rate R (s^-1).
+    counts: net counts, t_x: irradiation/decay/measurement times (s)
     """
-    N_A = 6.02214076e23
     lmbda = get_lambda()
     
-    num = counts * M * lmbda
-    den = (C * y * eps * eta * m * N_A * 
+    num = counts * PARAMS["M"] * lmbda
+    den = (PARAMS["C"] * PARAMS["y"] * PARAMS["eps"] * PARAMS["eta"] * PARAMS["m"] * PARAMS["N_A"] * 
            (1 - np.exp(-lmbda * t_i)) * 
            np.exp(-lmbda * t_d) * 
            (1 - np.exp(-lmbda * t_m)))
     
     return num / den
 
-def get_flux(R, R_Cd, F_Cd, G_th, G_epi, sig_th, sig_epi):
+def get_flux(R, R_Cd):
     """
-    Calcule phi_th (flux thermique) et phi_epi (flux épithermique)[cite: 1].
-    R/R_Cd: taux sans/avec Cd, F_Cd: facteur Cd[cite: 1]
-    G_th/G_epi: auto-protection, sig_th/sig_epi: sections efficaces[cite: 1]
+    Calculates phi_th (thermal flux) and phi_epi (epithermal flux).
+    R: rate without Cadmium protection, R_Cd: rate with Cadmium protection
     """
-    R_epi = F_Cd * R_Cd # Taux d'activation épithermique corrigé[cite: 1]
-    phi_epi = R_epi / (G_epi * sig_epi)
-    phi_th = (R - R_epi) / (G_th * sig_th)
+    R_epi = PARAMS["F_Cd"] * R_Cd # Corrected epithermal activation rate
+    
+    phi_epi = R_epi / (PARAMS["G_epi"] * PARAMS["sig_epi"])
+    phi_th = (R - R_epi) / (PARAMS["G_th"] * PARAMS["sig_th"])
     
     return phi_th, phi_epi
