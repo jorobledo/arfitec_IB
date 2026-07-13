@@ -310,21 +310,38 @@ class NeutronApp:
         # LEFT PANEL : FIT BUTTON
         # ==================================================
 
-        self.fit_button = tk.Button(
-            self.control_frame,
-            text="Fit",
-            command=self.show_fit_menu,
-            width=22,
-            bg="#6c757d",
-            fg="white",
-            activebackground="#7f8c8d",
-            bd=0,
-            cursor="hand2"
-        )
-        self.fit_button.pack(pady=(12,4))
+        self.fit_row = tk.Frame(self.control_frame, bg=BG_DARK)
+        self.fit_row.pack(pady=4)
 
         # Current selected fit
         self.selected_fit_id = "6"
+
+        self.selected_fit_label = tk.StringVar()
+        self.selected_fit_label.set("Select Fit")
+
+        self.fit_button = tk.Button(
+            self.fit_row,
+            textvariable=self.selected_fit_label,
+            command=self.show_fit_menu,
+            width=18,
+            bg="#34495e",
+            fg="white",
+            bd=0,
+            cursor="hand2"
+        )
+        self.fit_button.pack(side=tk.LEFT)
+
+        self.fit_ok_button = tk.Button(
+            self.fit_row,
+            text="OK",
+            command=self.execute_fit_plot,
+            width=5,
+            bg="#5d6d7e",
+            fg="white",
+            bd=0,
+            cursor="hand2"
+        )
+        self.fit_ok_button.pack(side=tk.LEFT, padx=6)
 
 
         # ==================================================
@@ -940,143 +957,143 @@ class NeutronApp:
             return path if path else ""
         
 
-    def execute_plot(self):
-        numero_plot = self.selected_plot_id
-        choix = self.selected_plot_label.get()
+    # def execute_plot(self):
+    #     numero_plot = self.selected_plot_id
+    #     choix = self.selected_plot_label.get()
         
-        if not self.datasets:
-            messagebox.showwarning("Warning", "Please load data files first.")
-            return
+    #     if not self.datasets:
+    #         messagebox.showwarning("Warning", "Please load data files first.")
+    #         return
         
-        if not self.ordre_selection:
-            messagebox.showwarning("Selection Error", "Please select at least one file in the list to plot.")   
-            return
+    #     if not self.ordre_selection:
+    #         messagebox.showwarning("Selection Error", "Please select at least one file in the list to plot.")   
+    #         return
 
-        fichiers = [self.file_listbox.get(i) for i in self.ordre_selection]
+    #     fichiers = [self.file_listbox.get(i) for i in self.ordre_selection]
 
-        try:
-            self.clear_plot()
+    #     try:
+    #         self.clear_plot()
             
-            # Import du module complet pour utiliser getattr dynamiquement
-            import plot as pt
-            base_kwargs = {"frame": self.plot_frame}
+    #         # Import du module complet pour utiliser getattr dynamiquement
+    #         import plot as pt
+    #         base_kwargs = {"frame": self.plot_frame}
 
-            # --- ROUTING OF NAA PHENOMENA ---
-            if numero_plot.startswith("NAA_"):
-                import plot_NAA as pt_naa
-                if numero_plot == "NAA_1":
-                    self.current_fig = pt_naa.plot_gamma_spectrum(fichiers, self.datasets, **base_kwargs)
-                elif numero_plot == "NAA_2":
-                    self.current_fig = pt_naa.plot_decay_curve(fichiers, self.datasets, **base_kwargs)
-                elif numero_plot == "NAA_3":
-                    self.current_fig = pt_naa.plot_concentration(fichiers, self.datasets, **base_kwargs)
+    #         # --- ROUTING OF NAA PHENOMENA ---
+    #         if numero_plot.startswith("NAA_"):
+    #             import plot_NAA as pt_naa
+    #             if numero_plot == "NAA_1":
+    #                 self.current_fig = pt_naa.plot_gamma_spectrum(fichiers, self.datasets, **base_kwargs)
+    #             elif numero_plot == "NAA_2":
+    #                 self.current_fig = pt_naa.plot_decay_curve(fichiers, self.datasets, **base_kwargs)
+    #             elif numero_plot == "NAA_3":
+    #                 self.current_fig = pt_naa.plot_concentration(fichiers, self.datasets, **base_kwargs)
 
-            # --- FAMILY 1: Standard Graphs (including Plot 6) ---
-            elif numero_plot in ["1", "2", "3", "4", "5", "6", "9", "10"]:
-                func = getattr(pt, f"plot_{numero_plot}")
-                self.current_fig = func(fichiers, self.datasets, **base_kwargs)
+    #         # --- FAMILY 1: Standard Graphs (including Plot 6) ---
+    #         elif numero_plot in ["1", "2", "3", "4", "5", "6", "9", "10"]:
+    #             func = getattr(pt, f"plot_{numero_plot}")
+    #             self.current_fig = func(fichiers, self.datasets, **base_kwargs)
                 
-                # Specific extraction for Plot 6 (Grid Search Maxwell Fit)
-                if numero_plot == "6":
-                    from physics import fit_maxwellian_grid_search
+    #             # Specific extraction for Plot 6 (Grid Search Maxwell Fit)
+    #             if numero_plot == "6":
+    #                 from physics import fit_maxwellian_grid_search
                     
-                    summary = "==================================================\n"
-                    summary += " GRID SEARCH MAXWELLIAN FIT RESULTS\n"
-                    summary += "==================================================\n\n"
+    #                 summary = "==================================================\n"
+    #                 summary += " GRID SEARCH MAXWELLIAN FIT RESULTS\n"
+    #                 summary += "==================================================\n\n"
                     
-                    # On recalcule rapidement les constantes pour les afficher dans l'IHM en anglais
-                    for nom in fichiers:
-                        data = self.datasets[nom]
-                        mask = (data['ToF'] >= PARAMS['t_min']) & (data['ToF'] <= PARAMS['t_max'])
-                        ToF_fit = data['ToF'][mask]
-                        flux_fit = data['flux_tof'][mask]
+    #                 # On recalcule rapidement les constantes pour les afficher dans l'IHM en anglais
+    #                 for nom in fichiers:
+    #                     data = self.datasets[nom]
+    #                     mask = (data['ToF'] >= PARAMS['t_min']) & (data['ToF'] <= PARAMS['t_max'])
+    #                     ToF_fit = data['ToF'][mask]
+    #                     flux_fit = data['flux_tof'][mask]
                         
-                        T_best, erreur_min = fit_maxwellian_grid_search(
-                            ToF_fit, flux_fit, data['meta']['path_length']
-                        )
+    #                     T_best, erreur_min = fit_maxwellian_grid_search(
+    #                         ToF_fit, flux_fit, data['meta']['path_length']
+    #                     )
                         
-                        summary += f"Dataset File : {nom}\n"
-                        summary += f"  -> Best Fit Temperature : {T_best:.2f} K\n"
-                        summary += f"  -> Minimum Residual Error : {erreur_min:.2e}\n"
-                        summary += f"  -> Active Time Range : {PARAMS['t_min']*1e6:.1f} to {PARAMS['t_max']*1e6:.1f} µs\n\n"
+    #                     summary += f"Dataset File : {nom}\n"
+    #                     summary += f"  -> Best Fit Temperature : {T_best:.2f} K\n"
+    #                     summary += f"  -> Minimum Residual Error : {erreur_min:.2e}\n"
+    #                     summary += f"  -> Active Time Range : {PARAMS['t_min']*1e6:.1f} to {PARAMS['t_max']*1e6:.1f} µs\n\n"
                     
-                    self.update_stats_display(summary)
+    #                 self.update_stats_display(summary)
                 
-            # --- FAMILY 2: Advanced Maxwell Adjustments (7.1, 7.2) ---
-            elif numero_plot in ["7.1", "7.2"]:
-                self.current_fig, self.fit_results = pt.plot_7(
-                    fichiers, self.datasets, choice_sub=float(numero_plot), **base_kwargs
-                )
+    #         # --- FAMILY 2: Advanced Maxwell Adjustments (7.1, 7.2) ---
+    #         elif numero_plot in ["7.1", "7.2"]:
+    #             self.current_fig, self.fit_results = pt.plot_7(
+    #                 fichiers, self.datasets, choice_sub=float(numero_plot), **base_kwargs
+    #             )
                 
-                # Reading and formatting of fit_results dictionary returned by plot_7
-                if self.fit_results:
-                    summary = "==================================================\n"
-                    summary += f" ADVANCED CURVE FIT RESULTS (Plot {numero_plot})\n"
-                    summary += "==================================================\n\n"
-                    summary += f"Primary Analyzed File : {fichiers[0]}\n\n"
-                    summary += "Extracted Physical Constants & Parameters :\n"
+    #             # Reading and formatting of fit_results dictionary returned by plot_7
+    #             if self.fit_results:
+    #                 summary = "==================================================\n"
+    #                 summary += f" ADVANCED CURVE FIT RESULTS (Plot {numero_plot})\n"
+    #                 summary += "==================================================\n\n"
+    #                 summary += f"Primary Analyzed File : {fichiers[0]}\n\n"
+    #                 summary += "Extracted Physical Constants & Parameters :\n"
                     
-                    # Key mapping for clean English display
-                    key_mapping = {
-                        "T_1": "Pure Maxwellian Temperature (T1)",
-                        "T_1_epi": "Maxwellian + Epithermal Temperature (T1_epi)",
-                        "r_squared_1": "R² Coefficient (Pure Maxwellian)",
-                        "r_squared_2": "R² Coefficient (Grouped Maxwellian)",
-                        "r_squared_1_epi": "R² Coefficient (Maxwellian + Epithermal)",
-                        "a1_tof_pure_1": "Amplitude Factor a1 (Model 1)",
-                        "a1_tof_pure_2": "Amplitude Factor a1 (Model 2)",
-                        "Ed_epi_1": "Epithermal Cutoff Energy (Ed)",
-                        "b_epi_1": "Epithermal Parameter b",
-                        "beta_epi_1": "Epithermal Parameter beta"
-                    }
+    #                 # Key mapping for clean English display
+    #                 key_mapping = {
+    #                     "T_1": "Pure Maxwellian Temperature (T1)",
+    #                     "T_1_epi": "Maxwellian + Epithermal Temperature (T1_epi)",
+    #                     "r_squared_1": "R² Coefficient (Pure Maxwellian)",
+    #                     "r_squared_2": "R² Coefficient (Grouped Maxwellian)",
+    #                     "r_squared_1_epi": "R² Coefficient (Maxwellian + Epithermal)",
+    #                     "a1_tof_pure_1": "Amplitude Factor a1 (Model 1)",
+    #                     "a1_tof_pure_2": "Amplitude Factor a1 (Model 2)",
+    #                     "Ed_epi_1": "Epithermal Cutoff Energy (Ed)",
+    #                     "b_epi_1": "Epithermal Parameter b",
+    #                     "beta_epi_1": "Epithermal Parameter beta"
+    #                 }
                     
-                    for key, val in self.fit_results.items():
-                        # Filter numpy prediction arrays to keep only scalars
-                        if isinstance(val, (int, float, np.float64, np.int64)):
-                            label_en = key_mapping.get(key, key)
-                            summary += f"  -> {label_en} : {val:.4f}\n"
+    #                 for key, val in self.fit_results.items():
+    #                     # Filter numpy prediction arrays to keep only scalars
+    #                     if isinstance(val, (int, float, np.float64, np.int64)):
+    #                         label_en = key_mapping.get(key, key)
+    #                         summary += f"  -> {label_en} : {val:.4f}\n"
                             
-                    self.update_stats_display(summary)
+    #                 self.update_stats_display(summary)
                 
-            # --- FAMILY 3: Energy Spectra (8.1, 8.2) ---
-            elif numero_plot in ["8.1", "8.2"]:
-                if self.fit_results is None:
-                    messagebox.showwarning("Warning", "Please execute plot 7 first to compute fit results.")
-                    return
+    #         # --- FAMILY 3: Energy Spectra (8.1, 8.2) ---
+    #         elif numero_plot in ["8.1", "8.2"]:
+    #             if self.fit_results is None:
+    #                 messagebox.showwarning("Warning", "Please execute plot 7 first to compute fit results.")
+    #                 return
                 
-                self.current_fig = pt.plot_8(
-                    fichiers, self.datasets, self.fit_results, choice_sub=float(numero_plot), **base_kwargs
-                )
+    #             self.current_fig = pt.plot_8(
+    #                 fichiers, self.datasets, self.fit_results, choice_sub=float(numero_plot), **base_kwargs
+    #             )
                 
-                # Optional: Display text reminder that statistics from this plot stem from fit 7
-                summary = "==================================================\n"
-                summary += f" ENERGY SPECTRUM MODELING (Plot {numero_plot})\n"
-                summary += "==================================================\n\n"
-                summary += f"Based on prior fit parameters from: {fichiers[0]}\n"
-                summary += "Plots display converted Time-of-Flight configurations into Energy scale (eV).\n"
-                summary += "Review 'Fit Results & Stats' tab parameters for exact scaling coefficients."
-                self.update_stats_display(summary)
+    #             # Optional: Display text reminder that statistics from this plot stem from fit 7
+    #             summary = "==================================================\n"
+    #             summary += f" ENERGY SPECTRUM MODELING (Plot {numero_plot})\n"
+    #             summary += "==================================================\n\n"
+    #             summary += f"Based on prior fit parameters from: {fichiers[0]}\n"
+    #             summary += "Plots display converted Time-of-Flight configurations into Energy scale (eV).\n"
+    #             summary += "Review 'Fit Results & Stats' tab parameters for exact scaling coefficients."
+    #             self.update_stats_display(summary)
                 
-            # Family 4: Cross Sections (11, 12) - Requires physical parameters and references
-            elif numero_plot in ["11", "12"]:
-                fichier_ref = self._ask_reference_files(multiple=(numero_plot == "11"))
-                func = getattr(pt, f"plot_{numero_plot}")
-                self.current_fig = func(
-                    fichiers, self.datasets,  
-                    fichier_ref=fichier_ref, 
-                    **base_kwargs
-                )
+    #         # Family 4: Cross Sections (11, 12) - Requires physical parameters and references
+    #         elif numero_plot in ["11", "12"]:
+    #             fichier_ref = self._ask_reference_files(multiple=(numero_plot == "11"))
+    #             func = getattr(pt, f"plot_{numero_plot}")
+    #             self.current_fig = func(
+    #                 fichiers, self.datasets,  
+    #                 fichier_ref=fichier_ref, 
+    #                 **base_kwargs
+    #             )
 
-            self._process_plot_statistics(numero_plot, fichiers, choix)
-            self.update_live_zoom()
-            self._reconfigure_y_sliders() # Call to external function
+    #         self._process_plot_statistics(numero_plot, fichiers, choix)
+    #         self.update_live_zoom()
+    #         self._reconfigure_y_sliders() # Call to external function
             
-            # Capture current text stats content and save everything as a clean snapshot
-            current_stats = self.txt_stats.get("1.0", tk.END).strip()
-            self.add_to_history(choix, fichiers, figure_obj=self.current_fig, stats_text=current_stats)
+    #         # Capture current text stats content and save everything as a clean snapshot
+    #         current_stats = self.txt_stats.get("1.0", tk.END).strip()
+    #         self.add_to_history(choix, fichiers, figure_obj=self.current_fig, stats_text=current_stats)
 
-        except Exception as e:
-            messagebox.showerror("Plot Error", str(e))
+    #     except Exception as e:
+    #         messagebox.showerror("Plot Error", str(e))
 
     def execute_flux_tof(self):
         """Plot the corrected neutron flux in the Time-of-Flight domain."""
@@ -1363,9 +1380,9 @@ class NeutronApp:
 
         self.analysis_menu.post(x, y)
 
-    def _set_analysis_plot(self, label, plot_id):
+    def _set_analysis_plot(self, label, analysis_id):
 
-        self.selected_plot_id = plot_id
+        self.selected_analysis_id = analysis_id
         self.selected_plot_label.set(label)
 
     def show_fit_menu(self):
@@ -1376,12 +1393,12 @@ class NeutronApp:
         self.fit_menu.post(x, y)
 
 
-    def _set_fit_plot(self, label, plot_id):
+    def _set_fit_plot(self, label, fit_id):
 
         self.selected_fit_id = fit_id
-        self.fit_button.config(text=label)
+        self.selected_fit_label.set(label)
 
-    def _set_current_analysis(self, label, plot_id):
+    def _set_current_analysis(self, label, analysis_id):
         """Updates selection variables and modifies button text."""
         self.selected_analysis_id = analysis_id
         self.selected_plot_label.set(label)
@@ -1658,10 +1675,363 @@ class NeutronApp:
         self.root.clipboard_append(self.txt_stats.get("1.0", tk.END).strip())
         messagebox.showinfo("Success", "Results successfully copied to clipboard.")
 
+    def _prepare_plot_execution(self):
+        """
+        Perform common checks and initialize plot execution.
+        Returns (fichiers, base_kwargs) or None if execution must stop.
+        """
+
+        if not self.datasets:
+            messagebox.showwarning(
+                "Warning",
+                "Please load data files first."
+            )
+            return None
+
+        if not self.ordre_selection:
+            messagebox.showwarning(
+                "Selection Error",
+                "Please select at least one file in the list to plot."
+            )
+            return None
+
+        fichiers = [
+            self.file_listbox.get(i)
+            for i in self.ordre_selection
+        ]
+
+        self.clear_plot()
+
+        base_kwargs = {
+            "frame": self.plot_frame
+        }
+
+        return fichiers, base_kwargs
+
+    def _finalize_plot_execution(self, numero_plot, fichiers, choix):
+        """
+        Common operations after a successful plot.
+        """
+
+        self._process_plot_statistics(
+            numero_plot,
+            fichiers,
+            choix
+        )
+
+        self.update_live_zoom()
+
+        self._reconfigure_y_sliders()
+
+        current_stats = self.txt_stats.get(
+            "1.0",
+            tk.END
+        ).strip()
+
+        self.add_to_history(
+            choix,
+            fichiers,
+            figure_obj=self.current_fig,
+            stats_text=current_stats
+        )
+
+
+
     def execute_analysis_plot(self):
 
-        self.execute_plot()
+        numero_plot = self.selected_analysis_id
+        choix = self.selected_plot_label.get()
+
+        prepared = self._prepare_plot_execution()
+
+        if prepared is None:
+            return
+
+        fichiers, base_kwargs = prepared
+
+        import plot as pt
+
+        try:
+
+            self.clear_plot()
+            
+            # ==========================================================
+            # NAA ANALYSIS
+            # ==========================================================
+
+            if numero_plot.startswith("NAA_"):
+
+                import plot_NAA as pt_naa
+
+                if numero_plot == "NAA_1":
+                    self.current_fig = pt_naa.plot_gamma_spectrum(
+                        fichiers,
+                        self.datasets,
+                        **base_kwargs
+                    )
+
+                elif numero_plot == "NAA_2":
+                    self.current_fig = pt_naa.plot_decay_curve(
+                        fichiers,
+                        self.datasets,
+                        **base_kwargs
+                    )
+
+                elif numero_plot == "NAA_3":
+                    self.current_fig = pt_naa.plot_concentration(
+                        fichiers,
+                        self.datasets,
+                        **base_kwargs
+                    )
+
+            # ==========================================================
+            # STANDARD PLOTS
+            # ==========================================================
+
+            elif numero_plot in ["1", "2", "3", "4", "5", "9", "10"]:
+
+                func = getattr(pt, f"plot_{numero_plot}")
+
+                self.current_fig = func(
+                    fichiers,
+                    self.datasets,
+                    **base_kwargs
+                )
+
+            # ==========================================================
+            # CROSS SECTIONS
+            # ==========================================================
+
+            elif numero_plot in ["11", "12"]:
+
+                fichier_ref = self._ask_reference_files(
+                    multiple=(numero_plot == "11")
+                )
+
+                func = getattr(pt, f"plot_{numero_plot}")
+
+                self.current_fig = func(
+                    fichiers,
+                    self.datasets,
+                    fichier_ref=fichier_ref,
+                    **base_kwargs
+                )
+
+            # ==========================================================
+            # COMMON POST-PROCESSING
+            # ==========================================================
+
+            self._finalize_plot_execution(
+                numero_plot,
+                fichiers,
+                choix
+            )
+
+        except Exception as e:
+            messagebox.showerror(
+                "Plot Error",
+                str(e)
+            )
 
     def execute_fit_plot(self):
 
-        self.execute_plot()
+        numero_plot = self.selected_fit_id
+        choix = self.fit_button.cget("text")
+
+        prepared = self._prepare_plot_execution()
+
+        if prepared is None:
+            return
+
+        fichiers, base_kwargs = prepared
+
+        import plot as pt
+
+        try:
+
+            self.clear_plot()
+
+            # ==========================================================
+            # PLOT 6 : GRID SEARCH MAXWELL FIT
+            # ==========================================================
+
+            if numero_plot == "6":
+
+                self.current_fig = pt.plot_6(
+                    fichiers,
+                    self.datasets,
+                    **base_kwargs
+                )
+
+                from physics import fit_maxwellian_grid_search
+
+                summary = "==================================================\n"
+                summary += " GRID SEARCH MAXWELLIAN FIT RESULTS\n"
+                summary += "==================================================\n\n"
+
+                for nom in fichiers:
+
+                    data = self.datasets[nom]
+
+                    mask = (
+                        (data["ToF"] >= PARAMS["t_min"])
+                        &
+                        (data["ToF"] <= PARAMS["t_max"])
+                    )
+
+                    ToF_fit = data["ToF"][mask]
+                    flux_fit = data["flux_tof"][mask]
+
+                    T_best, erreur_min = fit_maxwellian_grid_search(
+                        ToF_fit,
+                        flux_fit,
+                        data["meta"]["path_length"]
+                    )
+
+                    summary += f"Dataset File : {nom}\n"
+                    summary += f"  -> Best Fit Temperature : {T_best:.2f} K\n"
+                    summary += f"  -> Minimum Residual Error : {erreur_min:.2e}\n"
+                    summary += (
+                        f"  -> Active Time Range : "
+                        f"{PARAMS['t_min']*1e6:.1f} "
+                        f"to "
+                        f"{PARAMS['t_max']*1e6:.1f} µs\n\n"
+                    )
+
+                self.update_stats_display(summary)
+
+            # ==========================================================
+            # PLOT 7
+            # ==========================================================
+
+            elif numero_plot in ["7.1", "7.2"]:
+
+                self.current_fig, self.fit_results = pt.plot_7(
+                    fichiers,
+                    self.datasets,
+                    choice_sub=float(numero_plot),
+                    **base_kwargs
+                )
+
+                if self.fit_results:
+
+                    summary = "==================================================\n"
+                    summary += f" ADVANCED CURVE FIT RESULTS (Plot {numero_plot})\n"
+                    summary += "==================================================\n\n"
+
+                    summary += f"Primary Analyzed File : {fichiers[0]}\n\n"
+
+                    summary += (
+                        "Extracted Physical Constants & Parameters :\n"
+                    )
+
+                    key_mapping = {
+
+                        "T_1":
+                            "Pure Maxwellian Temperature (T1)",
+
+                        "T_1_epi":
+                            "Maxwellian + Epithermal Temperature (T1_epi)",
+
+                        "r_squared_1":
+                            "R² Coefficient (Pure Maxwellian)",
+
+                        "r_squared_2":
+                            "R² Coefficient (Grouped Maxwellian)",
+
+                        "r_squared_1_epi":
+                            "R² Coefficient (Maxwellian + Epithermal)",
+
+                        "a1_tof_pure_1":
+                            "Amplitude Factor a1 (Model 1)",
+
+                        "a1_tof_pure_2":
+                            "Amplitude Factor a1 (Model 2)",
+
+                        "Ed_epi_1":
+                            "Epithermal Cutoff Energy (Ed)",
+
+                        "b_epi_1":
+                            "Epithermal Parameter b",
+
+                        "beta_epi_1":
+                            "Epithermal Parameter beta"
+
+                    }
+
+                    for key, val in self.fit_results.items():
+
+                        if isinstance(
+                            val,
+                            (int, float, np.float64, np.int64)
+                        ):
+
+                            label_en = key_mapping.get(key, key)
+
+                            summary += (
+                                f"  -> {label_en} : {val:.4f}\n"
+                            )
+
+                    self.update_stats_display(summary)
+
+            # ==========================================================
+            # PLOT 8
+            # ==========================================================
+
+            elif numero_plot in ["8.1", "8.2"]:
+
+                if self.fit_results is None:
+
+                    messagebox.showwarning(
+                        "Warning",
+                        "Please execute Plot 7 before Plot 8."
+                    )
+                    return
+
+                self.current_fig = pt.plot_8(
+                    fichiers,
+                    self.datasets,
+                    self.fit_results,
+                    choice_sub=float(numero_plot),
+                    **base_kwargs
+                )
+
+                summary = "==================================================\n"
+                summary += (
+                    f" ENERGY SPECTRUM MODELING (Plot {numero_plot})\n"
+                )
+                summary += "==================================================\n\n"
+
+                summary += (
+                    f"Based on prior fit parameters from : "
+                    f"{fichiers[0]}\n\n"
+                )
+
+                summary += (
+                    "Plots display converted Time-of-Flight "
+                    "configurations into Energy scale (eV).\n"
+                )
+
+                summary += (
+                    "Review 'Fit Results & Stats' tab "
+                    "parameters for exact scaling coefficients."
+                )
+
+                self.update_stats_display(summary)
+
+            # ==========================================================
+            # COMMON POST PROCESSING
+            # ==========================================================
+
+            self._finalize_plot_execution(
+                numero_plot,
+                fichiers,
+                choix
+            )
+
+        except Exception as e:
+
+            messagebox.showerror(
+                "Plot Error",
+                str(e)
+            )
