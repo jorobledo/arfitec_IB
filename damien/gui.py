@@ -6,6 +6,7 @@ from tkinter import filedialog
 from tkinter import messagebox
 from tkinter import Menu
 from pathlib import Path
+import re
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -392,7 +393,7 @@ class NeutronApp:
             self.control_frame,
             text="Clear",
             command=self.clear_plot,
-            width=32,
+            width=30,
             bg="#d77f5f",
             fg=TEXT_LIGHT,
             activebackground="#a1887f",
@@ -410,7 +411,7 @@ class NeutronApp:
             self.control_frame,
             text="Quit",
             command=self.root.destroy,
-            width=32,
+            width=30,
             bg="#a03737",
             fg=TEXT_LIGHT,
             activebackground="#8d5b5b",
@@ -2095,6 +2096,10 @@ class NeutronApp:
             )
             return
 
+        # ==========================
+        # Window
+        # ==========================
+
         window = tk.Toplevel(self.root)
         window.title(title)
         window.geometry("900x700")
@@ -2110,14 +2115,160 @@ class NeutronApp:
             command=txt.yview
         )
 
-        txt.configure(
-            yscrollcommand=scrollbar.set
-        )
+        txt.configure(yscrollcommand=scrollbar.set)
 
         scrollbar.pack(side="right", fill="y")
         txt.pack(fill="both", expand=True)
 
-        txt.insert("1.0", text)
+        # ==========================
+        # Styles
+        # ==========================
+
+        txt.tag_configure(
+            "h1",
+            font=("Segoe UI", 18, "bold"),
+            spacing1=15,
+            spacing3=10
+        )
+
+        txt.tag_configure(
+            "h2",
+            font=("Segoe UI", 14, "bold"),
+            spacing1=12,
+            spacing3=8
+        )
+
+        txt.tag_configure(
+            "h3",
+            font=("Segoe UI", 12, "bold"),
+            spacing1=8,
+            spacing3=5
+        )
+
+        txt.tag_configure(
+            "bold",
+            font=("Segoe UI", 10, "bold")
+        )
+
+        txt.tag_configure(
+            "italic",
+            font=("Segoe UI", 10, "italic")
+        )
+
+        txt.tag_configure(
+            "code",
+            font=("Consolas", 10),
+            background="#f3f3f3"
+        )
+
+        txt.tag_configure(
+            "bullet",
+            lmargin1=25,
+            lmargin2=45
+        )
+
+        txt.tag_configure(
+            "link",
+            foreground="blue",
+            underline=True
+        )
+
+        # ==========================
+        # Markdown parser
+        # ==========================
+
+        pattern = r"(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\))"
+
+        for line in text.splitlines():
+
+            # ---------- Headers ----------
+
+            if line.startswith("# "):
+                txt.insert("end", line[2:] + "\n", "h1")
+                continue
+
+            elif line.startswith("## "):
+                txt.insert("end", line[3:] + "\n", "h2")
+                continue
+
+            elif line.startswith("### "):
+                txt.insert("end", line[4:] + "\n", "h3")
+                continue
+
+            # ---------- Horizontal rule ----------
+
+            elif line.strip() == "---":
+                txt.insert(
+                    "end",
+                    "────────────────────────────────────────────────────────────\n"
+                )
+                continue
+
+            # ---------- Bullet list ----------
+
+            elif line.startswith("- "):
+                line = "• " + line[2:]
+
+            # ---------- Numbered list ----------
+
+            m = re.match(r"^(\d+)\.\s+(.*)", line)
+            if m:
+                line = f"{m.group(1)}. {m.group(2)}"
+
+            # ---------- Inline formatting ----------
+
+            pos = 0
+
+            for match in re.finditer(pattern, line):
+
+                start, end = match.span()
+
+                txt.insert("end", line[pos:start])
+
+                token = match.group()
+
+                # Bold
+
+                if token.startswith("**"):
+                    txt.insert(
+                        "end",
+                        token[2:-2],
+                        "bold"
+                    )
+
+                # Italic
+
+                elif token.startswith("*"):
+                    txt.insert(
+                        "end",
+                        token[1:-1],
+                        "italic"
+                    )
+
+                # Code
+
+                elif token.startswith("`"):
+                    txt.insert(
+                        "end",
+                        token[1:-1],
+                        "code"
+                    )
+
+                # Markdown link
+
+                elif token.startswith("["):
+
+                    label = re.search(r"\[(.*?)\]", token).group(1)
+
+                    txt.insert(
+                        "end",
+                        label,
+                        "link"
+                    )
+
+                pos = end
+
+            txt.insert("end", line[pos:] + "\n")
 
         txt.config(state="disabled")
 
