@@ -440,7 +440,6 @@ class NeutronApp:
             ("9 - Reactor Power Comparison", "9"),
             ("10 - Reactor Power vs Neutron Rate", "10"),
             ("11 - Cross Section", "11"),
-            ("12 - Cross Section ref file", "12"),
         ]
         for label, p_id in tof_options:
             self.tof_submenu.add_command(
@@ -1843,7 +1842,7 @@ class NeutronApp:
             # CROSS SECTIONS
             # ==========================================================
 
-            elif numero_plot in ["11", "12"]:
+            elif numero_plot in ["11"]:
 
                 fichier_ref = self._ask_reference_files(
                     multiple=(numero_plot == "11")

@@ -35,18 +35,43 @@ The software provides tools to:
 
 ## Developed by
 
-Damien XXXXX
+**Damien Zanini**
 
-ARFITEC Laboratory
+Software design, implementation and graphical interface.
 
-2025
+## Scientific Contributors
+
+**Luis Rodriguez**
+
+Internship supervisor
+
+**Jose Robledo**
+
+Co Internship supervisor
+
+**Romain Billy**
+
+Coworker
+
+---
+
+## Acknowledgements
+
+---
+
+## Institution
+
+Balseiro Institute
+
+2026
 
 ---
 
 ## Contact
 
 For bug reports or feature requests, please contact the software developer.
+damien.zanini74@gmail.com
 
 ---
 
-© 2025 ARFITEC
+© 2026 ARFITEC
