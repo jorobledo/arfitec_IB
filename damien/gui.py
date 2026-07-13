@@ -1,3 +1,4 @@
+from cProfile import label
 import tkinter as tk
 import numpy as np
 from tkinter import ttk
@@ -24,7 +25,9 @@ from plot import (
     plot_9,
     plot_10,
     plot_11,
-    plot_12
+    plot_12,
+    plot_flux_tof,
+    plot_flux_energy
 )
 
 # Import correction (removal of .py)
@@ -223,36 +226,146 @@ class NeutronApp:
         self.ordre_selection = []
         self.file_listbox.bind('<<ListboxSelect>>', self.maj_ordre_selection)
 
-        # LEFT PANEL: PLOT SELECTION
         # ==================================================
-        self.plot_label = tk.Label(
+        # LEFT PANEL : QUICK FLUX PLOTS
+        # ==================================================
+
+        self.flux_button_frame = tk.Frame(self.control_frame, bg=BG_DARK)
+        self.flux_button_frame.pack(pady=(15,8))
+
+        self.tof_flux_button = tk.Button(
+            self.flux_button_frame,
+            text="ToF Flux",
+            command=self.execute_flux_tof,
+            width=10,
+            bg="#566573",
+            fg="white",
+            activebackground="#707b7c",
+            bd=0,
+            cursor="hand2"
+        )
+        self.tof_flux_button.pack(side=tk.LEFT, padx=4)
+
+        self.energy_flux_button = tk.Button(
+            self.flux_button_frame,
+            text="Energy Flux",
+            command=self.execute_flux_energy,
+            width=10,
+            bg="#566573",
+            fg="white",
+            activebackground="#707b7c",
+            bd=0,
+            cursor="hand2"
+        )
+        self.energy_flux_button.pack(side=tk.LEFT, padx=4)
+
+
+        # ==================================================
+        # LEFT PANEL : ANALYSIS MENU
+        # ==================================================
+
+        tk.Label(
             self.control_frame,
             text="Analysis Selection",
             bg=BG_DARK,
             fg=TEXT_LIGHT,
             font=FONT_BOLD
-        )
-        self.plot_label.pack(pady=(15, 2))
+        ).pack(pady=(12,5))
 
-        # Variable to store currently selected plot
-        self.selected_plot_id = "1"  # Default value
-        self.selected_plot_label = tk.StringVar(value="1 - Grouping Comparison")
+        self.analysis_row = tk.Frame(self.control_frame, bg=BG_DARK)
+        self.analysis_row.pack()
 
-        # Main button that will trigger menu opening
+        # Current selected analysis
+        self.selected_analysis_id = "1"
+
+        self.selected_plot_label = tk.StringVar()
+        self.selected_plot_label.set("Select Analysis")
+
         self.select_plot_button = tk.Button(
-            self.control_frame,
+            self.analysis_row,
             textvariable=self.selected_plot_label,
             command=self.show_analysis_menu,
-            font=("Segoe UI", 9, "bold"),
+            width=18,
             bg="#34495e",
-            fg="#f1c40f", # Yellow to indicate important action
-            activebackground="#5d6d7e",
-            activeforeground="#f1c40f",
-            bd=1, relief="raised", height=2, width=26, cursor="hand2"
+            fg="white",
+            bd=0,
+            cursor="hand2"
         )
-        self.select_plot_button.pack(pady=5)
+        self.select_plot_button.pack(side=tk.LEFT)
 
-        # Create invisible root menu in memory
+        self.ok_button = tk.Button(
+            self.analysis_row,
+            text="OK",
+            command=self.execute_analysis_plot,
+            width=5,
+            bg="#5d6d7e",
+            fg="white",
+            bd=0,
+            cursor="hand2"
+        )
+        self.ok_button.pack(side=tk.LEFT, padx=6)
+
+
+        # ==================================================
+        # LEFT PANEL : FIT BUTTON
+        # ==================================================
+
+        self.fit_button = tk.Button(
+            self.control_frame,
+            text="Fit",
+            command=self.show_fit_menu,
+            width=22,
+            bg="#6c757d",
+            fg="white",
+            activebackground="#7f8c8d",
+            bd=0,
+            cursor="hand2"
+        )
+        self.fit_button.pack(pady=(12,4))
+
+        # Current selected fit
+        self.selected_fit_id = "6"
+
+
+        # ==================================================
+        # LEFT PANEL : CLEAR
+        # ==================================================
+
+        self.clear_button = tk.Button(
+            self.control_frame,
+            text="Clear",
+            command=self.clear_plot,
+            width=22,
+            bg="#8d6e63",
+            fg="white",
+            activebackground="#a1887f",
+            bd=0,
+            cursor="hand2"
+        )
+        self.clear_button.pack(pady=4)
+
+
+        # ==================================================
+        # LEFT PANEL : QUIT
+        # ==================================================
+
+        self.quit_button = tk.Button(
+            self.control_frame,
+            text="Quit",
+            command=self.root.destroy,
+            width=22,
+            bg="#7b4b4b",
+            fg="white",
+            activebackground="#8d5b5b",
+            bd=0,
+            cursor="hand2"
+        )
+        self.quit_button.pack(pady=(4,15))
+
+        # ==================================================
+        # Analysis menu
+        # ==================================================
+
         self.analysis_menu = Menu(self.root, tearoff=0)
 
         # 1st submenu: ToF Experiment
@@ -266,11 +379,6 @@ class NeutronApp:
             ("3 - Efficiency vs Energy", "3"),
             ("4 - Efficiency vs ToF", "4"),
             ("5 - Maxwellian Comparison", "5"),
-            ("6 - Least Square Maxwell Fit", "6"),
-            ("7.1 - Curve Fit Maxwell (ToF view)", "7.1"),
-            ("7.2 - Curve Fit Maxwell (ToF + Epi)", "7.2"),
-            ("8.1 - Energy Spectrum (ToF convert)", "8.1"),
-            ("8.2 - Energy Spectrum (ToF + Epi)", "8.2"),
             ("9 - Reactor Power Comparison", "9"),
             ("10 - Reactor Power vs Neutron Rate", "10"),
             ("11 - Cross Section", "11"),
@@ -297,6 +405,27 @@ class NeutronApp:
                 label=label, 
                 command=lambda l=label, i=p_id: self._set_current_analysis(l, i)
             )
+
+        # ==================================================
+        # Fit menu
+        # ==================================================
+
+        self.fit_menu = Menu(self.root, tearoff=0)
+
+        fit_options = [
+            ("6 - Least Square Maxwell Fit", "6"),
+            ("7.1 - Curve Fit Maxwell (ToF view)", "7.1"),
+            ("7.2 - Curve Fit Maxwell (ToF + Epi)", "7.2"),
+            ("8.1 - Energy Spectrum (ToF convert)", "8.1"),
+            ("8.2 - Energy Spectrum (ToF + Epi)", "8.2"),
+        ]
+
+        for label, p_id in fit_options:
+            self.fit_menu.add_command(
+                label=label,
+                command=lambda l=label, i=p_id: self._set_fit_plot(l, i)
+            )
+            
 
         # LEFT PANEL: COMPACT AND DISTINCT ACTIONS
         # ==================================================
@@ -988,6 +1117,64 @@ class NeutronApp:
         except Exception as e:
             messagebox.showerror("Plot Error", str(e))
 
+    def execute_flux_tof(self):
+        """Plot the corrected neutron flux in the Time-of-Flight domain."""
+
+        if not self.datasets:
+            messagebox.showwarning("Warning", "Please load data files first.")
+            return
+
+        if not self.ordre_selection:
+            messagebox.showwarning(
+                "Selection Error",
+                "Please select at least one file."
+            )
+            return
+
+        fichiers = [self.file_listbox.get(i) for i in self.ordre_selection]
+
+        self.clear_plot()
+
+        import plot as pt
+
+        self.current_fig = pt.plot_flux_tof(
+            fichiers,
+            self.datasets,
+            frame=self.plot_frame
+        )
+
+        self.update_live_zoom()
+        self._reconfigure_y_sliders()
+
+    def execute_flux_energy(self):
+        """Plot the corrected neutron flux in the Energy domain."""
+
+        if not self.datasets:
+            messagebox.showwarning("Warning", "Please load data files first.")
+            return
+
+        if not self.ordre_selection:
+            messagebox.showwarning(
+                "Selection Error",
+                "Please select at least one file."
+            )
+            return
+
+        fichiers = [self.file_listbox.get(i) for i in self.ordre_selection]
+
+        self.clear_plot()
+
+        import plot as pt
+
+        self.current_fig = pt.plot_flux_energy(
+            fichiers,
+            self.datasets,
+            frame=self.plot_frame
+        )
+
+        self.update_live_zoom()
+        self._reconfigure_y_sliders()
+
     
     def _reconfigure_y_sliders(self):
         """Automatically adjusts Y slider bounds relative to graph data."""
@@ -1209,17 +1396,33 @@ class NeutronApp:
         self.apply_y_limits = False
 
     def show_analysis_menu(self):
-        """Displays the cascade menu just below the button on click."""
-        # Retrieves physical coordinates of button on screen
+
         x = self.select_plot_button.winfo_rootx()
         y = self.select_plot_button.winfo_rooty() + self.select_plot_button.winfo_height()
-        
-        # Displays menu contextually
+
         self.analysis_menu.post(x, y)
+
+    def _set_analysis_plot(self, label, plot_id):
+
+        self.selected_plot_id = plot_id
+        self.selected_plot_label.set(label)
+
+    def show_fit_menu(self):
+
+        x = self.fit_button.winfo_rootx()
+        y = self.fit_button.winfo_rooty() + self.fit_button.winfo_height()
+
+        self.fit_menu.post(x, y)
+
+
+    def _set_fit_plot(self, label, plot_id):
+
+        self.selected_fit_id = fit_id
+        self.fit_button.config(text=label)
 
     def _set_current_analysis(self, label, plot_id):
         """Updates selection variables and modifies button text."""
-        self.selected_plot_id = plot_id
+        self.selected_analysis_id = analysis_id
         self.selected_plot_label.set(label)
 
         
@@ -1493,3 +1696,11 @@ class NeutronApp:
         self.root.clipboard_clear()
         self.root.clipboard_append(self.txt_stats.get("1.0", tk.END).strip())
         messagebox.showinfo("Success", "Results successfully copied to clipboard.")
+
+    def execute_analysis_plot(self):
+
+        self.execute_plot()
+
+    def execute_fit_plot(self):
+
+        self.execute_plot()

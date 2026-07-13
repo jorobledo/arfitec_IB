@@ -78,7 +78,7 @@ def compute_efficiency_energy(E):
     return np.vectorize(calcul_eff)(E)
 
 
-def convert_to_energy_scale(flux_tof, ToF, path_length):
+def convert_to_energy_scale(flux_tof, ToF, path_length, unc_tof):
     """Transforms temporal flux to energy flux via Jacobian."""
     E = 0.5 * masse_n * (path_length / ToF)**2 / eV
     E_joules = E * eV
@@ -88,7 +88,9 @@ def convert_to_energy_scale(flux_tof, ToF, path_length):
     
     flux_E = flux_tof * jacobian
     flux_E2 = flux_E * E
-    return E, flux_E, flux_E2
+    unc_E2 = np.abs(unc_tof * (flux_tof / 2.0))
+    unc_E = np.abs(unc_E2 / E)
+    return E, flux_E, flux_E2, unc_E, unc_E2
 
 
 def read_reference_file(fichier_ref, E_min, E_max):
@@ -431,7 +433,7 @@ def process_neutron_data(fichier):
     flux_tof_grouped = apply_grouping_methode2(flux_final_tof)
     
     # 6. Change of variable to Energy Domain
-    E, flux_E, flux_E2 = convert_to_energy_scale(flux_final_tof, ToF, meta['path_length'])
+    E, flux_E, flux_E2, unc_E, unc_E2= convert_to_energy_scale(flux_final_tof, ToF, meta['path_length'], unc_normalisee)
     eff_E = compute_efficiency_energy(E)
     
     # Clean output dictionary
@@ -455,7 +457,9 @@ def process_neutron_data(fichier):
         'eff_E': eff_E,
         'eff_ToF': eff_ToF,
         'flux_E': flux_E,
-        'flux_E2': flux_E2
+        'flux_E2': flux_E2,
+        'unc_E': unc_E,
+        'unc_E2': unc_E2
     }
 
 

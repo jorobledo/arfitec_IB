@@ -738,3 +738,83 @@ def plot_12(fichiers, datasets, fichier_ref="", frame=None):
     
     _integrer_canvas(fig, frame)
     return fig
+
+
+
+def plot_flux_tof(fichiers, datasets, frame=None):
+    """
+    Plot corrected neutron flux in the Time-of-Flight domain with uncertainties.
+    Multiple datasets can be superimposed.
+    """
+    if frame is not None:
+        for widget in frame.winfo_children():
+            widget.destroy()
+
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+
+    for nom in fichiers:
+        data = datasets[nom]
+
+        # Using errorbar to display the vertical uncertainty vector (unc_tof)
+        ax.errorbar(
+            data["ToF"] * 1e6,
+            data["flux_tof"],
+            yerr=data["unc_tof"],
+            fmt='-',
+            linewidth=1.5,
+            elinewidth=0.8,
+            capsize=1.5,
+            alpha=0.8,
+            ecolor=None,  # Automatically matches the line color
+            label=nom
+        )
+
+    ax.set_xlabel("Time of Flight (µs)")
+    ax.set_ylabel("Corrected Flux")
+    ax.set_title("Corrected Neutron Flux (ToF)")
+    ax.grid(True, linestyle="--", alpha=0.5)
+    ax.legend()
+
+    plt.tight_layout()
+    _integrer_canvas(fig, frame)
+    return fig
+
+
+def plot_flux_energy(fichiers, datasets, frame=None):
+    """
+    Plot corrected neutron flux in the Energy domain with uncertainties.
+    Uses flux_E2 = Flux(E) × E.
+    Multiple datasets can be superimposed.
+    """
+    if frame is not None:
+        for widget in frame.winfo_children():
+            widget.destroy()
+
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+
+    for nom in fichiers:
+        data = datasets[nom]
+
+        # Using errorbar to display the vertical uncertainty vector on the energy scale
+        ax.errorbar(
+            data["E"],
+            data["flux_E2"],
+            yerr=data["unc_tof"],  # Propagated uncertainty vector tracking
+            fmt='-',
+            linewidth=1.5,
+            elinewidth=0.8,
+            capsize=1.5,
+            alpha=0.8,
+            label=nom
+        )
+
+    ax.set_xscale("log")
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Flux(E) × E")
+    ax.set_title("Corrected Energy Flux")
+    ax.grid(True, which="both", linestyle="--", alpha=0.5)
+    ax.legend()
+
+    plt.tight_layout()
+    _integrer_canvas(fig, frame)
+    return fig
