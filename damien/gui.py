@@ -5,6 +5,7 @@ from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
 from tkinter import Menu
+from pathlib import Path
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -74,7 +75,17 @@ class NeutronApp:
         menu_outils = Menu(barre_menu, tearoff=0)
         barre_menu.add_cascade(label="Tools", menu=menu_outils)
         menu_outils.add_command(label="Group Files", command=self.action_grouper_fichiers)
+
+        # 3. "Help" Dropdown Menu
+        menu_help = Menu(barre_menu, tearoff=0)
+        barre_menu.add_cascade(label="Help", menu=menu_help)
+        menu_help.add_command(label="User Guide", command=self.show_user_guide)
+        menu_help.add_command(label="Recommended Workflow",command=self.show_workflow)
+        menu_help.add_command(label="Plot Reference",command=self.show_plot_reference)
+        menu_help.add_separator()
+        menu_help.add_command(label="About",command=self.show_about)
         
+
         # ==================================================
         # DESIGN & STYLES (TABS & FONTS)
         # ==================================================
@@ -381,7 +392,7 @@ class NeutronApp:
             self.control_frame,
             text="Clear",
             command=self.clear_plot,
-            width=36,
+            width=32,
             bg="#d77f5f",
             fg=TEXT_LIGHT,
             activebackground="#a1887f",
@@ -399,7 +410,7 @@ class NeutronApp:
             self.control_frame,
             text="Quit",
             command=self.root.destroy,
-            width=36,
+            width=32,
             bg="#a03737",
             fg=TEXT_LIGHT,
             activebackground="#8d5b5b",
@@ -2064,3 +2075,60 @@ class NeutronApp:
                 "Plot Error",
                 str(e)
             )
+
+    
+    def _show_markdown_file(self, title, filename):
+        """
+        Display a Markdown help file in a read-only window.
+        """
+
+        filepath = Path(__file__).parent / "user_guide" / filename
+
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                text = f.read()
+
+        except FileNotFoundError:
+            messagebox.showerror(
+                "Documentation Error",
+                f"Unable to find:\n{filepath}"
+            )
+            return
+
+        window = tk.Toplevel(self.root)
+        window.title(title)
+        window.geometry("900x700")
+
+        txt = tk.Text(
+            window,
+            wrap="word",
+            font=("Segoe UI", 10)
+        )
+
+        scrollbar = tk.Scrollbar(
+            window,
+            command=txt.yview
+        )
+
+        txt.configure(
+            yscrollcommand=scrollbar.set
+        )
+
+        scrollbar.pack(side="right", fill="y")
+        txt.pack(fill="both", expand=True)
+
+        txt.insert("1.0", text)
+
+        txt.config(state="disabled")
+
+    def show_user_guide(self):
+        self._show_markdown_file("User Guide", "user_guide.md")
+        
+    def show_workflow(self):
+        self._show_markdown_file("Workflow", "work_flow.md")
+
+    def show_plot_reference(self):
+        self._show_markdown_file("Plot Reference", "plot_reference.md")
+
+    def show_about(self):
+        self._show_markdown_file("About", "about.md")
