@@ -669,45 +669,6 @@ class NeutronApp:
             highlightthickness=0
         ).grid(row=5, column=2)
 
-        self.plot_button = tk.Button(
-            self.btn_frame,
-            text="Plot",
-            command=self.execute_plot,
-            font=FONT_BOLD,
-            bg="#2ecc71", # Bright distinct green
-            fg=TEXT_LIGHT,
-            activebackground="#27ae60",
-            bd=0, width=10, height=1, cursor="hand2"
-        )
-        self.plot_button.pack(side=tk.LEFT, padx=5)
-
-        self.clear_button = tk.Button(
-            self.btn_frame,
-            text="Clear",
-            command=self.clear_plot,
-            font=FONT_BOLD,
-            bg="#e67e22", # Bright distinct orange
-            fg=TEXT_LIGHT,
-            activebackground="#d35400",
-            bd=0, width=10, height=1, cursor="hand2"
-        )
-        self.clear_button.pack(side=tk.LEFT, padx=5)
-
-        # ==================================================
-        # LEFT PANEL: SEPARATE QUIT BUTTON
-        # ==================================================
-        self.quit_button = tk.Button(
-            self.control_frame,
-            text="Quit Application",
-            command=self.root.quit,
-            font=FONT_MAIN,
-            bg="#e74c3c", # Scarlet red
-            fg=TEXT_LIGHT,
-            activebackground="#c0392b",
-            bd=0, width=22, height=1, cursor="hand2"
-        )
-        self.quit_button.pack(side=tk.BOTTOM, pady=30)
-
         # ==================================================
         # INITIAL EMPTY PLOT (PLACEHOLDER)
         # ==================================================
