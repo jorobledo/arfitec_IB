@@ -195,7 +195,7 @@ class NeutronApp:
             activeforeground=TEXT_LIGHT,
             bd=0, height=1, width=22, cursor="hand2"
         )
-        self.clear_cache_button.pack(pady=(2, 15))
+        self.clear_cache_button.pack(pady=(2, 5))
 
         # LEFT PANEL: FILE LIST
         # ==================================================
@@ -206,7 +206,7 @@ class NeutronApp:
             fg=TEXT_LIGHT,
             font=FONT_BOLD
         )
-        self.file_label.pack(pady=(10, 2))
+        self.file_label.pack(pady=(5, 2))
 
         self.file_listbox = tk.Listbox(
             self.control_frame,
@@ -230,50 +230,67 @@ class NeutronApp:
         # LEFT PANEL : QUICK FLUX PLOTS
         # ==================================================
 
-        self.flux_button_frame = tk.Frame(self.control_frame, bg=BG_DARK)
-        self.flux_button_frame.pack(pady=(15,8))
+        self.flux_frame = tk.LabelFrame(
+            self.control_frame,
+            text="Flux",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            font=FONT_BOLD,
+            padx=10,
+            pady=6
+        )
+        
+
+        self.flux_frame.pack(
+            padx=12,
+            pady=(2,1)
+        )
 
         self.tof_flux_button = tk.Button(
-            self.flux_button_frame,
+            self.flux_frame,
             text="ToF Flux",
             command=self.execute_flux_tof,
-            width=10,
+            width=14,
             bg="#566573",
             fg="white",
             activebackground="#707b7c",
             bd=0,
             cursor="hand2"
         )
-        self.tof_flux_button.pack(side=tk.LEFT, padx=4)
+        self.tof_flux_button.pack(side=tk.LEFT, padx=6)
 
         self.energy_flux_button = tk.Button(
-            self.flux_button_frame,
+            self.flux_frame,
             text="Energy Flux",
             command=self.execute_flux_energy,
-            width=10,
+            width=14,
             bg="#566573",
             fg="white",
             activebackground="#707b7c",
             bd=0,
             cursor="hand2"
         )
-        self.energy_flux_button.pack(side=tk.LEFT, padx=4)
+        self.energy_flux_button.pack(side=tk.RIGHT, padx=6)
 
 
         # ==================================================
         # LEFT PANEL : ANALYSIS MENU
         # ==================================================
 
-        tk.Label(
+        self.analysis_frame = tk.LabelFrame(
             self.control_frame,
-            text="Analysis Selection",
+            text="Analysis",
             bg=BG_DARK,
             fg=TEXT_LIGHT,
-            font=FONT_BOLD
-        ).pack(pady=(12,5))
+            font=FONT_BOLD,
+            padx=14,
+            pady=6
+        )
 
-        self.analysis_row = tk.Frame(self.control_frame, bg=BG_DARK)
-        self.analysis_row.pack()
+        self.analysis_frame.pack(
+            padx=12,
+            pady=(1,1)
+        )
 
         # Current selected analysis
         self.selected_analysis_id = "1"
@@ -282,10 +299,10 @@ class NeutronApp:
         self.selected_plot_label.set("Select Analysis")
 
         self.select_plot_button = tk.Button(
-            self.analysis_row,
+            self.analysis_frame,
             textvariable=self.selected_plot_label,
             command=self.show_analysis_menu,
-            width=18,
+            width=24,
             bg="#34495e",
             fg="white",
             bd=0,
@@ -294,7 +311,7 @@ class NeutronApp:
         self.select_plot_button.pack(side=tk.LEFT)
 
         self.ok_button = tk.Button(
-            self.analysis_row,
+            self.analysis_frame,
             text="OK",
             command=self.execute_analysis_plot,
             width=5,
@@ -303,15 +320,27 @@ class NeutronApp:
             bd=0,
             cursor="hand2"
         )
-        self.ok_button.pack(side=tk.LEFT, padx=6)
+        self.ok_button.pack(side=tk.RIGHT, padx=6)
 
 
         # ==================================================
         # LEFT PANEL : FIT BUTTON
         # ==================================================
 
-        self.fit_row = tk.Frame(self.control_frame, bg=BG_DARK)
-        self.fit_row.pack(pady=4)
+        self.fit_frame = tk.LabelFrame(
+            self.control_frame,
+            text="Fit",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            font=FONT_BOLD,
+            padx=14,
+            pady=6
+        )
+
+        self.fit_frame.pack(
+            padx=12,
+            pady=(1,8)
+        )
 
         # Current selected fit
         self.selected_fit_id = "6"
@@ -320,10 +349,10 @@ class NeutronApp:
         self.selected_fit_label.set("Select Fit")
 
         self.fit_button = tk.Button(
-            self.fit_row,
+            self.fit_frame ,
             textvariable=self.selected_fit_label,
             command=self.show_fit_menu,
-            width=18,
+            width=24,
             bg="#34495e",
             fg="white",
             bd=0,
@@ -332,7 +361,7 @@ class NeutronApp:
         self.fit_button.pack(side=tk.LEFT)
 
         self.fit_ok_button = tk.Button(
-            self.fit_row,
+            self.fit_frame,
             text="OK",
             command=self.execute_fit_plot,
             width=5,
@@ -341,7 +370,7 @@ class NeutronApp:
             bd=0,
             cursor="hand2"
         )
-        self.fit_ok_button.pack(side=tk.LEFT, padx=6)
+        self.fit_ok_button.pack(side=tk.RIGHT, padx=6)
 
 
         # ==================================================
@@ -352,7 +381,7 @@ class NeutronApp:
             self.control_frame,
             text="Clear",
             command=self.clear_plot,
-            width=22,
+            width=30,
             bg="#8d6e63",
             fg="white",
             activebackground="#a1887f",
@@ -370,14 +399,14 @@ class NeutronApp:
             self.control_frame,
             text="Quit",
             command=self.root.destroy,
-            width=22,
+            width=30,
             bg="#7b4b4b",
             fg="white",
             activebackground="#8d5b5b",
             bd=0,
             cursor="hand2"
         )
-        self.quit_button.pack(pady=(4,15))
+        self.quit_button.pack(pady=(4,8))
 
         # ==================================================
         # Analysis menu
@@ -447,7 +476,7 @@ class NeutronApp:
         # LEFT PANEL: COMPACT AND DISTINCT ACTIONS
         # ==================================================
         self.btn_frame = tk.Frame(self.control_frame, bg=BG_DARK)
-        self.btn_frame.pack(pady=20)
+        self.btn_frame.pack(pady=2)
         
         self.display_t_min = tk.DoubleVar(value=150)
         self.display_t_max = tk.DoubleVar(value=3700)
