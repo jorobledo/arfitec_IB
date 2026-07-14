@@ -336,7 +336,7 @@ def plot_8(fichiers, datasets, fit_results, choice_sub=8.1, frame=None):
         a1_tof_pure_1 = fit_results.get('a1_tof_pure_1')
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 9), sharex=True)
-        ax1.errorbar(data['E'][mask_E], data['flux_E'][mask_E], yerr=data['unc_tof'][mask_E], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected 1')
+        ax1.errorbar(data['E'][mask_E], data['flux_E'][mask_E], yerr=data['unc_E'][mask_E], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected 1')
         ax1.plot(data['E'][mask_E], flux_modele_1[mask_E], '-', color='black', linewidth=2, label=f'Fit Maxwellian 1 (T = {T_1:.1f} K, R² = {r_squared_1:.2f})')
 
         if a0_tof_pure_1 is not None and a1_tof_pure_1 is not None:
@@ -344,15 +344,15 @@ def plot_8(fichiers, datasets, fit_results, choice_sub=8.1, frame=None):
             flux_tof_pure_converted = flux_tof_pure_poly * jacobian
             r2_tof_conv_1 = calculate_r_squared(data['flux_E'][mask_E], flux_tof_pure_converted[mask_E])
             r2_tof_conv_2 = calculate_r_squared(data['flux_E2'][mask_E], (flux_tof_pure_converted * data['E'])[mask_E])
-            ax1.plot(data['E'][mask_E], flux_tof_pure_converted[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.1 converti (R² = {r2_tof_conv_1:.2f})')
+            ax1.plot(data['E'][mask_E], flux_tof_pure_converted[mask_E] , ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.1 converti (R² = {r2_tof_conv_1:.2f})')
 
         ax1.set_xlabel('Energy (eV)'); ax1.set_ylabel('Flux (E)'); ax1.set_title('Energy spectrum with optimal Maxwellian fit')
         ax1.legend(loc='upper right', fontsize=8); ax1.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax1.set_xscale('log')
 
-        ax2.errorbar(data['E'][mask_E], data['flux_E2'][mask_E], yerr=data['unc_tof'][mask_E], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Energy flux * E')
+        ax2.errorbar(data['E'][mask_E], data['flux_E2'][mask_E], yerr=data['unc_E2'][mask_E], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Energy flux * E')
         ax2.plot(data['E'][mask_E], flux_modele_2[mask_E], '-', color='black', linewidth=2, label=f'Fit Maxwellian 2 (T = {T_2:.1f} K, R² = {r_squared_2:.2f})')
         if a0_tof_pure_1 is not None and a1_tof_pure_1 is not None:
-            ax2.plot(data['E'][mask_E], (flux_tof_pure_converted * data['E'])[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.1 converti * E (R² = {r2_tof_conv_2:.2f})')
+            ax2.plot(data['E'][mask_E], (flux_tof_pure_converted * data['E'])[mask_E] , ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.1 converti * E (R² = {r2_tof_conv_2:.2f})')
 
         ax2.set_xlabel('Energy (eV)'); ax2.set_ylabel('Flux (E) * E '); ax2.set_title('Corrected energy spectrum with optimal Maxwellian fit')
         ax2.legend(loc='upper right', fontsize=8); ax2.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax2.set_xscale('log')
@@ -406,25 +406,25 @@ def plot_8(fichiers, datasets, fit_results, choice_sub=8.1, frame=None):
         ax1.plot(data['E'][mask_E], data['flux_E'][mask_E], '.', markersize=4, color='purple', label='Experimental corrected 1')
         ax1.plot(data['E'][mask_E], flux_modele_1[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 1 pure')
         ax1.plot(data['E'][mask_E], flux_modele_1_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 1 + Epi')
-        ax1.plot(data['E'][mask_E], flux_tof_epi_converted[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.2 converti (R² = {r2_tof_epi_conv_1:.2f})')
+        ax1.plot(data['E'][mask_E], flux_tof_epi_converted[mask_E] , ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.2 converti (R² = {r2_tof_epi_conv_1:.2f})')
         ax1.set_ylabel('Flux (E)'); ax1.set_title('Energy spectrum (Linear Y)'); ax1.legend(loc='upper right', fontsize=8); ax1.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax1.set_xscale('log')
 
         ax2.plot(data['E'][mask_E], data['flux_E2'][mask_E], '.', markersize=4, color='purple', label='Energy flux * E')
         ax2.plot(data['E'][mask_E], flux_modele_2[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 2 pure')
         ax2.plot(data['E'][mask_E], flux_modele_2_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 2 + Epi')
-        ax2.plot(data['E'][mask_E], (flux_tof_epi_converted * data['E'])[mask_E], ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.2 converti * E (R² = {r2_tof_epi_conv_2:.2f})')
+        ax2.plot(data['E'][mask_E], (flux_tof_epi_converted * data['E'])[mask_E] , ':', color='orange', linewidth=2.5, label=f'Fit ToF 7.2 converti * E (R² = {r2_tof_epi_conv_2:.2f})')
         ax2.set_ylabel('Flux (E) * E'); ax2.set_title('Corrected energy spectrum (Linear Y)'); ax2.legend(loc='upper right', fontsize=8); ax2.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax2.set_xscale('log')
 
         ax3.plot(data['E'][mask_E], data['flux_E'][mask_E], '.', markersize=4, color='purple', label='Experimental corrected 1')
         ax3.plot(data['E'][mask_E], flux_modele_1[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 1 pure')
         ax3.plot(data['E'][mask_E], flux_modele_1_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 1 + Epi')
-        ax3.plot(data['E'][mask_E], flux_tof_epi_converted[mask_E], ':', color='orange', linewidth=2.5, label='Fit ToF 7.2 converti')
+        ax3.plot(data['E'][mask_E], flux_tof_epi_converted[mask_E] , ':', color='orange', linewidth=2.5, label='Fit ToF 7.2 converti')
         ax3.set_xlabel('Energy (eV)'); ax3.set_ylabel('Flux (E)'); ax3.set_title('Energy spectrum (Log Y)'); ax3.legend(loc='upper right', fontsize=8); ax3.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax3.set_xscale('log'); ax3.set_yscale('log'); ax3.set_ylim(bottom=np.max(data['flux_E'][mask_E]) * 1e-6)
 
         ax4.plot(data['E'][mask_E], data['flux_E2'][mask_E], '.', markersize=4, color='purple', label='Energy flux * E')
         ax4.plot(data['E'][mask_E], flux_modele_2[mask_E], '--', color='blue', linewidth=1.5, label='Fit Maxwellian 2 pure')
         ax4.plot(data['E'][mask_E], flux_modele_2_epi[mask_E], '--', color='red', linewidth=2, label='Fit Maxwellian 2 + Epi')
-        ax4.plot(data['E'][mask_E], (flux_tof_epi_converted * data['E'])[mask_E], ':', color='orange', linewidth=2.5, label='Fit ToF 7.2 converti * E')
+        ax4.plot(data['E'][mask_E], (flux_tof_epi_converted * data['E'])[mask_E] , ':', color='orange', linewidth=2.5, label='Fit ToF 7.2 converti * E')
         ax4.set_xlabel('Energy (eV)'); ax4.set_ylabel('Flux (E) * E'); ax4.set_title('Corrected energy spectrum (Log Y)'); ax4.legend(loc='upper right', fontsize=8); ax4.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7); ax4.set_xscale('log'); ax4.set_yscale('log'); ax4.set_ylim(bottom=np.max(data['flux_E2'][mask_E]) * 1e-6)
 
         plt.tight_layout()

@@ -84,11 +84,13 @@ def convert_to_energy_scale(flux_tof, ToF, path_length, unc_tof):
     E_joules = E * eV
     
     # Calculate Jacobian |dt/dE|
-    jacobian = 0.5 * path_length * np.sqrt(masse_n / (2 * E_joules**3))
-    
-    flux_E = flux_tof * jacobian
+    jacobian_dt_dE = 0.5 * path_length * np.sqrt(masse_n / (2 * E_joules**3))
+    # Calculate Jacobian |dE/dt| 
+    jacobian_dE_dt = 2 * E_joules / ToF
+
+    flux_E = flux_tof * jacobian_dt_dE * eV
     flux_E2 = flux_E * E
-    unc_E2 = np.abs(unc_tof * (flux_tof / 2.0))
+    unc_E2 = np.abs(unc_tof * (ToF / 2.0))
     unc_E = np.abs(unc_E2 / E)
     return E, flux_E, flux_E2, unc_E, unc_E2
 
@@ -262,8 +264,8 @@ def compute_plot8_models(data, fit_results=None):
     borne_inf = [0.0, 5.8]
     borne_sup = [np.inf, 232.0]
 
-    E_joules_all = data['E'] * eV
-    jacobian = 0.5 * data['meta']['path_length'] * np.sqrt(masse_n / (2 * E_joules_all**3))
+    E_joules = data['E'] * eV
+    jacobian = 0.5 * data['meta']['path_length'] * np.sqrt(masse_n / (2 * E_joules**3)) * eV
 
     p0_1 = [np.max(data['flux_E']) / np.max(data['E']), 1 / (k_b / eV * 300)]
     popt_1, pcov_1 = curve_fit(maxwell_model_E, data['E'][mask_E], data['flux_E'][mask_E], p0=p0_1, bounds=(borne_inf, borne_sup))
