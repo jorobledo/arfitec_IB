@@ -315,7 +315,8 @@ def plot_8(
     datasets,
     frame=None,
     show_fluxE=False,
-    show_log=False,
+    show_logx=True,
+    show_logy=False,
     show_maxwell=True,
     show_tof=True,
     show_tof_epi=True,
@@ -391,9 +392,9 @@ def plot_8(
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Flux × E" if show_fluxE else "Flux")
 
-    ax.set_xscale("log")
-
-    if show_log:
+    if show_logx:
+        ax.set_xscale("log")
+    if show_logy:
         ax.set_yscale("log")
 
     ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)

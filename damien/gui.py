@@ -44,6 +44,58 @@ from config import PARAMS
 # GUI APPLICATION
 # ==========================================================
 
+class ScrollableFrame(ttk.Frame):
+    """Scrollable frame with mouse wheel support."""
+
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent)
+
+        # Colors of our modern design system
+        BG_DARK = "#2c3e50"      # Dark slate blue for left panel
+        TEXT_LIGHT = "#d3d3d3"   # Light gray for left panel text
+        FONT_MAIN = ("Segoe UI", 10)
+        FONT_BOLD = ("Segoe UI", 11, "bold")
+
+        canvas = tk.Canvas(
+            self,
+            highlightthickness=0,
+            borderwidth=0,
+            bg=BG_DARK
+        )
+
+        scrollbar = ttk.Scrollbar(
+            self,
+            orient="vertical",
+            command=canvas.yview
+        )
+
+        self.content = tk.Frame(
+            canvas,
+            bg=BG_DARK
+        )
+
+        self.content.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window(
+            (0, 0),
+            window=self.content,
+            anchor="nw"
+        )
+
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-event.delta / 120), "units")
+
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
 class NeutronApp:
 
     # ======================================================
@@ -141,6 +193,7 @@ class NeutronApp:
             width=280,
             bg=BG_DARK
         )
+        
         self.control_frame.pack_propagate(False)
         self.control_frame.grid(row=0, column=0, sticky="nsw")
 
@@ -487,7 +540,8 @@ class NeutronApp:
         # LEFT PANEL : DISPLAY OPTIONS
         # ==================================================
 
-        self.show_log_var = tk.BooleanVar(value=False)
+        self.show_logx_var = tk.BooleanVar(value=False)
+        self.show_logy_var = tk.BooleanVar(value=False)
         self.show_fluxE_var = tk.BooleanVar(value=False)
         self.show_maxwell_var = tk.BooleanVar(value=True)
         self.show_tof_var = tk.BooleanVar(value=True)
@@ -514,8 +568,19 @@ class NeutronApp:
 
         tk.Checkbutton(
             self.display_frame,
-            text="Log scale",
-            variable=self.show_log_var,
+            text="Log x",
+            variable=self.show_logx_var,
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT
+        ).pack(anchor="w")
+
+        tk.Checkbutton(
+            self.display_frame,
+            text="Log y",
+            variable=self.show_logy_var,
             bg=BG_DARK,
             fg=TEXT_LIGHT,
             selectcolor=BG_DARK,
@@ -1561,8 +1626,10 @@ class NeutronApp:
         # Show specific display options only for Plot 8
         if fit_id.startswith("8"):
             self.plot8_options.pack(fill="x", pady=(8, 0))
+            self.show_logx_var.set(True)
         else:
             self.plot8_options.pack_forget()
+            self.show_logx_var.set(False)
 
     def _set_current_analysis(self, label, analysis_id):
         """Updates selection variables and modifies button text."""
@@ -1906,7 +1973,8 @@ class NeutronApp:
         """Return display options for the currently selected plot."""
 
         kwargs = {
-            "show_log": self.show_log_var.get(),
+            "show_logx": self.show_logx_var.get(),
+            "show_logy": self.show_logy_var.get(),
         }
 
         if self.selected_fit_id.startswith("8"):
