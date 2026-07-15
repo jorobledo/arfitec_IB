@@ -44,58 +44,6 @@ from config import PARAMS
 # GUI APPLICATION
 # ==========================================================
 
-class ScrollableFrame(ttk.Frame):
-    """Scrollable frame with mouse wheel support."""
-
-    def __init__(self, parent, *args, **kwargs):
-        super().__init__(parent)
-
-        # Colors of our modern design system
-        BG_DARK = "#2c3e50"      # Dark slate blue for left panel
-        TEXT_LIGHT = "#d3d3d3"   # Light gray for left panel text
-        FONT_MAIN = ("Segoe UI", 10)
-        FONT_BOLD = ("Segoe UI", 11, "bold")
-
-        canvas = tk.Canvas(
-            self,
-            highlightthickness=0,
-            borderwidth=0,
-            bg=BG_DARK
-        )
-
-        scrollbar = ttk.Scrollbar(
-            self,
-            orient="vertical",
-            command=canvas.yview
-        )
-
-        self.content = tk.Frame(
-            canvas,
-            bg=BG_DARK
-        )
-
-        self.content.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window(
-            (0, 0),
-            window=self.content,
-            anchor="nw"
-        )
-
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-event.delta / 120), "units")
-
-        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
-        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
-
 class NeutronApp:
 
     # ======================================================
@@ -188,14 +136,65 @@ class NeutronApp:
         self.tab_analysis.grid_rowconfigure(0, weight=1)
 
         # 1. Left control panel (Dark Style & High Contrast)
-        self.control_frame = tk.Frame(
+        # Container fixe pour la zone gauche
+        self.control_container = tk.Frame(
             self.tab_analysis,
             width=280,
             bg=BG_DARK
         )
-        
-        self.control_frame.pack_propagate(False)
-        self.control_frame.grid(row=0, column=0, sticky="nsw")
+        self.control_container.grid(row=0, column=0, sticky="nsw")
+
+        self.control_container.grid_propagate(False)
+
+        self.control_canvas = tk.Canvas(
+            self.control_container,
+            bg=BG_DARK,
+            highlightthickness=0,
+            width=280
+        )
+
+        self.control_canvas.pack(
+            side="left",
+            fill="both",
+            expand=True
+        )
+
+        self.control_scrollbar = ttk.Scrollbar(
+            self.control_container,
+            orient="vertical",
+            command=self.control_canvas.yview
+        )
+
+        self.control_scrollbar.pack(
+            side="right",
+            fill="y"
+        )
+
+        self.control_canvas.configure(
+            yscrollcommand=self.control_scrollbar.set
+        )
+
+        # True pannel control that receve the widgets
+        self.control_frame = tk.Frame(
+            self.control_canvas,
+            bg=BG_DARK
+        )
+
+        self.control_window = self.control_canvas.create_window(
+            (0, 0),
+            window=self.control_frame,
+            anchor="nw"
+        )
+
+        # auto update of the scroll zone
+        self.control_frame.bind(
+            "<Configure>",
+            lambda e: self.control_canvas.configure(
+                scrollregion=self.control_canvas.bbox("all")
+            )
+        )
+
+        self.setup_control_scroll()
 
         # 2. Right graphical area
         self.plot_frame_container = tk.Frame(self.tab_analysis, bg="#ffffff")
@@ -1586,6 +1585,32 @@ class NeutronApp:
         except ValueError as e:
             # Safety if user makes input error (e.g. a letter or empty field)
             messagebox.showerror("Parsing Error", f"Please enter valid numerical values.\nDetails: {e}")
+
+    def setup_control_scroll(self):
+        """
+        Configure mouse wheel and trackpad scrolling for the control panel.
+        """
+
+        def on_mousewheel(event):
+            self.control_canvas.yview_scroll(
+                int(-event.delta / 60),
+                "units"
+            )
+
+        self.control_canvas.bind(
+            "<Enter>",
+            lambda e: self.control_canvas.bind_all(
+                "<MouseWheel>",
+                on_mousewheel
+            )
+        )
+
+        self.control_canvas.bind(
+            "<Leave>",
+            lambda e: self.control_canvas.unbind_all(
+                "<MouseWheel>"
+            )
+        )
 
     def clear_plot(self):
         for widget in self.plot_frame.winfo_children():
