@@ -250,81 +250,276 @@ def compute_fit_results_from_dataset(data):
     return fit_results
 
 
-def compute_plot8_models(data, fit_results=None):
-    """Calculates models and conversions needed for plots 8.x.
-    If `fit_results` (temporal) is provided, also converts models ToF -> E.
-    Returns a dict with keys: flux_modele_1, flux_modele_2, jacobian, flux_tof_pure_converted, flux_tof_epi_converted, masks, and parameters T, R².
+def compute_plot8_models(data):
     """
+    Compute all models required for energy-domain plots.
+
+    This function is fully autonomous:
+      - Computes the ToF fits internally.
+      - Fits Maxwell models directly in energy space.
+      - Converts ToF models into energy space.
+      - Computes analytical Maxwell + epithermal models.
+      - Computes R² values and temperatures.
+
+    Returns
+    -------
+    dict
+        Dictionary containing every model, parameter and metric required by plot_8().
+    """
+
+    # ------------------------------------------------------------------
+    # Compute ToF fits internally
+    # ------------------------------------------------------------------
+    fit_results = compute_fit_results_from_dataset(data)
+
     E_min = PARAMS['E_min']
     E_max = PARAMS['E_max']
 
     mask_E = (data['E'] >= E_min) & (data['E'] <= E_max)
     mask_epi = (data['E'] >= 0.4) & (data['E'] <= E_max)
 
-    borne_inf = [0.0, 5.8]
-    borne_sup = [np.inf, 232.0]
-
+    # ------------------------------------------------------------------
+    # Jacobian (dt/dE)
+    # ------------------------------------------------------------------
     E_joules = data['E'] * eV
-    jacobian = 0.5 * data['meta']['path_length'] * np.sqrt(masse_n / (2 * E_joules**3)) * eV
 
-    p0_1 = [np.max(data['flux_E']) / np.max(data['E']), 1 / (k_b / eV * 300)]
-    popt_1, pcov_1 = curve_fit(maxwell_model_E, data['E'][mask_E], data['flux_E'][mask_E], p0=p0_1, bounds=(borne_inf, borne_sup))
-    a0_best_1, a1_best_1 = popt_1[0], popt_1[1]
-    perr_1 = np.sqrt(np.diag(pcov_1))
+    jacobian = (
+        0.5
+        * data['meta']['path_length']
+        * np.sqrt(masse_n / (2 * E_joules**3))
+        * eV
+    )
 
-    flux_modele_1 = maxwell_model_E(data['E'], a0_best_1, a1_best_1)
-    r_squared_1 = calculate_r_squared(data['flux_E'][mask_E], flux_modele_1[mask_E])
+    # ------------------------------------------------------------------
+    # Maxwell fit on Flux(E)
+    # ------------------------------------------------------------------
+    bounds_low = [0.0, 5.8]
+    bounds_high = [np.inf, 232.0]
+
+    p0_1 = [
+        np.max(data["flux_E"]) / np.max(data["E"]),
+        1 / (k_b / eV * 300),
+    ]
+
+    popt_1, pcov_1 = curve_fit(
+        maxwell_model_E,
+        data["E"][mask_E],
+        data["flux_E"][mask_E],
+        p0=p0_1,
+        bounds=(bounds_low, bounds_high),
+    )
+
+    a0_best_1, a1_best_1 = popt_1
+
+    flux_modele_1 = maxwell_model_E(data["E"], a0_best_1, a1_best_1)
+
+    r_squared_1 = calculate_r_squared(
+        data["flux_E"][mask_E],
+        flux_modele_1[mask_E],
+    )
+
     T_1 = 1 / (k_b / eV * a1_best_1)
 
-    p0_2 = [np.max(data['flux_E2']) / np.max(data['E']), 1 / (k_b / eV * 300)]
-    popt_2, pcov_2 = curve_fit(maxwell_model_E_corr, data['E'][mask_E], data['flux_E2'][mask_E], p0=p0_2, bounds=(borne_inf, borne_sup))
-    a0_best_2, a1_best_2 = popt_2[0], popt_2[1]
+    # ------------------------------------------------------------------
+    # Maxwell fit on Flux(E) × E
+    # ------------------------------------------------------------------
+    p0_2 = [
+        np.max(data["flux_E2"]) / np.max(data["E"]),
+        1 / (k_b / eV * 300),
+    ]
 
-    flux_modele_2 = maxwell_model_E_corr(data['E'], a0_best_2, a1_best_2)
-    r_squared_2 = calculate_r_squared(data['flux_E2'][mask_E], flux_modele_2[mask_E])
+    popt_2, pcov_2 = curve_fit(
+        maxwell_model_E_corr,
+        data["E"][mask_E],
+        data["flux_E2"][mask_E],
+        p0=p0_2,
+        bounds=(bounds_low, bounds_high),
+    )
+
+    a0_best_2, a1_best_2 = popt_2
+
+    flux_modele_2 = maxwell_model_E_corr(
+        data["E"],
+        a0_best_2,
+        a1_best_2,
+    )
+
+    r_squared_2 = calculate_r_squared(
+        data["flux_E2"][mask_E],
+        flux_modele_2[mask_E],
+    )
+
     T_2 = 1 / (k_b / eV * a1_best_2)
 
-    out = {
-        'flux_modele_1': flux_modele_1,
-        'flux_modele_2': flux_modele_2,
-        'jacobian': jacobian,
-        'mask_E': mask_E,
-        'mask_epi': mask_epi,
-        'T_1': T_1,
-        'T_2': T_2,
-        'r_squared_1': r_squared_1,
-        'r_squared_2': r_squared_2
-    }
+    # ------------------------------------------------------------------
+    # Convert pure Maxwell ToF fit into energy space
+    # ------------------------------------------------------------------
+    flux_tof_pure = maxwell_model_tof(
+        data["ToF"],
+        fit_results["a0_tof_pure_1"],
+        fit_results["a1_tof_pure_1"],
+    )
 
-    # Expose fitted parameters for possible downstream use
-    out['a0_best_1'] = a0_best_1
-    out['a1_best_1'] = a1_best_1
-    out['a0_best_2'] = a0_best_2
-    out['a1_best_2'] = a1_best_2
+    flux_tof_pure_converted = flux_tof_pure * jacobian
 
-    if fit_results is not None:
-        a0_tof = fit_results.get('a0_tof_pure_1')
-        a1_tof = fit_results.get('a1_tof_pure_1')
-        if a0_tof is not None and a1_tof is not None:
-            flux_tof_pure_poly = maxwell_model_tof(data['ToF'], a0_tof, a1_tof)
-            flux_tof_pure_converted = flux_tof_pure_poly * jacobian
-            out['flux_tof_pure_converted'] = flux_tof_pure_converted
+    r2_tof_conv_1 = calculate_r_squared(
+        data["flux_E"][mask_E],
+        flux_tof_pure_converted[mask_E],
+    )
 
-        # If epithermal temporal params exist, convert them too
-        try:
-            a0_from_tof = fit_results['a0_epi_1']
-            a1_from_tof = fit_results['a1_epi_1']
-            a2_from_tof = fit_results['a2_epi_1']
-            Ed_from_tof = fit_results['Ed_epi_1']
-            b_from_tof = fit_results['b_epi_1']
-            beta_from_tof = fit_results['beta_epi_1']
-            flux_tof_epi_pure = model_tof_epi(data['ToF'], a0_from_tof, a1_from_tof, a2_from_tof, Ed_from_tof, b_from_tof, beta_from_tof, data['E'])
-            flux_tof_epi_converted = flux_tof_epi_pure * jacobian
-            out['flux_tof_epi_converted'] = flux_tof_epi_converted
-        except KeyError:
-            pass
+    r2_tof_conv_2 = calculate_r_squared(
+        data["flux_E2"][mask_E],
+        (flux_tof_pure_converted * data["E"])[mask_E],
+    )
 
-    return out
+    # ------------------------------------------------------------------
+    # Convert ToF Maxwell + epithermal model into energy space
+    # ------------------------------------------------------------------
+    flux_tof_epi = model_tof_epi(
+        data["ToF"],
+        fit_results["a0_epi_1"],
+        fit_results["a1_epi_1"],
+        fit_results["a2_epi_1"],
+        fit_results["Ed_epi_1"],
+        fit_results["b_epi_1"],
+        fit_results["beta_epi_1"],
+        data["E"],
+    )
+
+    flux_tof_epi_converted = flux_tof_epi * jacobian
+
+    r2_tof_epi_conv_1 = calculate_r_squared(
+        data["flux_E"][mask_E],
+        flux_tof_epi_converted[mask_E],
+    )
+
+    r2_tof_epi_conv_2 = calculate_r_squared(
+        data["flux_E2"][mask_E],
+        (flux_tof_epi_converted * data["E"])[mask_E],
+    )
+
+    # ------------------------------------------------------------------
+    # Analytical Maxwell + epithermal model in energy space
+    # ------------------------------------------------------------------
+    T_from_tof = fit_results["T_1_epi"]
+    Ed = fit_results["Ed_epi_1"]
+
+    b_manual = 0.27
+    beta_manual = 1.921
+
+    b_corr_manual = 0.5
+    beta_corr_manual = 1.921
+
+    # ----- Flux(E)
+
+    E_peak_1 = 1 / fit_results["a1_epi_1"]
+
+    height_1 = (
+        a0_best_1
+        * E_peak_1
+        * np.exp(-a1_best_1 * E_peak_1)
+    )
+
+    a0_epi_energy_1 = height_1 / E_peak_1
+    a1_epi_energy_1 = 1 / (k_b / eV * T_from_tof)
+
+    shape_1 = (
+        (1 - np.exp(-(data["E"][mask_epi] / Ed) ** 2))
+        * data["E"][mask_epi] ** (b_manual - 1)
+        * np.exp(-data["E"][mask_epi] / beta_manual)
+    )
+
+    a2_epi_energy_1 = np.mean(
+        data["flux_E"][mask_epi] / shape_1
+    )
+
+    flux_modele_1_epi = maxwell_epi_analytique_E(
+        data["E"],
+        a0_epi_energy_1,
+        a1_epi_energy_1,
+        a2_epi_energy_1,
+        Ed,
+        b_manual,
+        beta_manual,
+    )
+
+    # ----- Flux(E) × E
+
+    E_peak_2 = 2 / fit_results["a1_epi_1"]
+
+    height_2 = (
+        a0_best_2
+        * E_peak_2**2
+        * np.exp(-a1_best_2 * E_peak_2)
+    )
+
+    a0_epi_energy_2 = height_2 / E_peak_2**2
+    a1_epi_energy_2 = 1 / (k_b / eV * T_from_tof)
+
+    shape_2 = (
+        (1 - np.exp(-(data["E"][mask_epi] / Ed) ** 2))
+        * data["E"][mask_epi] ** b_corr_manual
+        * np.exp(-data["E"][mask_epi] / beta_corr_manual)
+    )
+
+    a2_epi_energy_2 = np.mean(
+        data["flux_E2"][mask_epi] / shape_2
+    )
+
+    flux_modele_2_epi = maxwell_epi_analytique_E_corr(
+        data["E"],
+        a0_epi_energy_2,
+        a1_epi_energy_2,
+        a2_epi_energy_2,
+        Ed,
+        b_corr_manual,
+        beta_corr_manual,
+    )
+
+    # ------------------------------------------------------------------
+    # Return everything required by plot_8()
+    # ------------------------------------------------------------------
+    return {
+    "E": data["E"],
+    "mask": mask_E,
+    "mask_epi": mask_epi,
+
+    "flux": {
+        "experimental": data["flux_E"],
+        "uncertainty": data["unc_E"],
+
+        "temperature": T_1,
+
+        "scores": {
+            "maxwell": r_squared_1,
+            "tof": r2_tof_conv_1,
+            "tof_epi": r2_tof_epi_conv_1,
+        },
+
+        "maxwell": flux_modele_1,
+        "tof": flux_tof_pure_converted,
+        "tof_epi": flux_tof_epi_converted,
+        "epi": flux_modele_1_epi,
+    },
+
+    "fluxE": {
+        "experimental": data["flux_E2"],
+        "uncertainty": data["unc_E2"],
+
+        "temperature": T_2,
+
+        "scores": {
+            "maxwell": r_squared_2,
+            "tof": r2_tof_conv_2,
+            "tof_epi": r2_tof_epi_conv_2,
+        },
+
+        "maxwell": flux_modele_2,
+        "tof": flux_tof_pure_converted * data["E"],
+        "tof_epi": flux_tof_epi_converted * data["E"],
+        "epi": flux_modele_2_epi,
+    },
+}
 
 def fit_maxwellian_grid_search(ToF, flux, path_length):
     """Determines the best temperature by least squares (increments of 5K)."""

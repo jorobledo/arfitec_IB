@@ -473,8 +473,7 @@ class NeutronApp:
             ("6 - Least Square Maxwell Fit", "6"),
             ("7.1 - Curve Fit Maxwell (ToF view)", "7.1"),
             ("7.2 - Curve Fit Maxwell (ToF + Epi)", "7.2"),
-            ("8.1 - Energy Spectrum (ToF convert)", "8.1"),
-            ("8.2 - Energy Spectrum (ToF + Epi)", "8.2"),
+            ("8 - Energy Spectrum","8"),
         ]
 
         for label, p_id in fit_options:
@@ -482,6 +481,127 @@ class NeutronApp:
                 label=label,
                 command=lambda l=label, i=p_id: self._set_fit_plot(l, i)
             )
+
+
+        # ==================================================
+        # LEFT PANEL : DISPLAY OPTIONS
+        # ==================================================
+
+        self.show_log_var = tk.BooleanVar(value=False)
+        self.show_fluxE_var = tk.BooleanVar(value=False)
+        self.show_maxwell_var = tk.BooleanVar(value=True)
+        self.show_tof_var = tk.BooleanVar(value=True)
+        self.show_tof_epi_var = tk.BooleanVar(value=True)
+        self.show_epi_var = tk.BooleanVar(value=True)
+
+        self.display_frame = tk.LabelFrame(
+            self.control_frame,
+            text="Display Options",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            font=FONT_BOLD,
+            padx=10,
+            pady=6
+        )
+
+        self.display_frame.pack(
+            padx=12,
+            pady=(2,8),
+            fill="x"
+        )
+
+        # ----- Global options -----
+
+        tk.Checkbutton(
+            self.display_frame,
+            text="Log scale",
+            variable=self.show_log_var,
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT
+        ).pack(anchor="w")
+
+        # ----- Plot 8 options -----
+
+        self.plot8_options = tk.Frame(
+            self.display_frame,
+            bg=BG_DARK
+        )
+
+        self.plot8_options.pack(
+            fill="x",
+            pady=(8,0)
+        )
+
+        tk.Label(
+            self.plot8_options,
+            text="Plot 8",
+            bg=BG_DARK,
+            fg="#87cefa",
+            font=("Segoe UI",10,"bold")
+        ).pack(anchor="w")
+
+        # Flux representation
+        tk.Checkbutton(
+            self.plot8_options,
+            text="Flux × E",
+            variable=self.show_fluxE_var,
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT
+        ).pack(anchor="w")
+
+        # Displayed models
+        tk.Checkbutton(
+            self.plot8_options,
+            text="Maxwell fit",
+            variable=self.show_maxwell_var,
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT
+        ).pack(anchor="w")
+
+        tk.Checkbutton(
+            self.plot8_options,
+            text="ToF converted",
+            variable=self.show_tof_var,
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT
+        ).pack(anchor="w")
+
+        tk.Checkbutton(
+            self.plot8_options,
+            text="ToF + Epithermal",
+            variable=self.show_tof_epi_var,
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT
+        ).pack(anchor="w")
+
+        tk.Checkbutton(
+            self.plot8_options,
+            text="Analytical model",
+            variable=self.show_epi_var,
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT
+        ).pack(anchor="w")
+
+        # Hide Plot 8 options at startup
+        self.plot8_options.pack_forget()
             
 
         # LEFT PANEL: COMPACT AND DISTINCT ACTIONS
@@ -1287,7 +1407,7 @@ class NeutronApp:
                     summary += f"  -> {key_mapping.get(key, key)} : {val:.4f}\n"
 
         # --- Formatage pour les Plots 8.1 et 8.2 ---
-        elif numero_plot in ["8.1", "8.2"]:
+        elif numero_plot in ["8"]:
             summary += f" ENERGY SPECTRUM MODELING (Plot {numero_plot})\n"
             summary += "==================================================\n\n"
             summary += f"Based on prior fit parameters from: {fichiers[0]}\n"
@@ -1437,6 +1557,12 @@ class NeutronApp:
 
         self.selected_fit_id = fit_id
         self.selected_fit_label.set(label)
+
+        # Show specific display options only for Plot 8
+        if fit_id.startswith("8"):
+            self.plot8_options.pack(fill="x", pady=(8, 0))
+        else:
+            self.plot8_options.pack_forget()
 
     def _set_current_analysis(self, label, analysis_id):
         """Updates selection variables and modifies button text."""
@@ -1776,6 +1902,24 @@ class NeutronApp:
         )
 
 
+    def _get_plot_kwargs(self):
+        """Return display options for the currently selected plot."""
+
+        kwargs = {
+            "show_log": self.show_log_var.get(),
+        }
+
+        if self.selected_fit_id.startswith("8"):
+            kwargs.update({
+                "show_fluxE": self.show_fluxE_var.get(),
+                "show_maxwell": self.show_maxwell_var.get(),
+                "show_tof": self.show_tof_var.get(),
+                "show_tof_epi": self.show_tof_epi_var.get(),
+                "show_epi": self.show_epi_var.get(),
+            })
+
+        return kwargs
+
 
     def execute_analysis_plot(self):
 
@@ -2018,22 +2162,14 @@ class NeutronApp:
             # PLOT 8
             # ==========================================================
 
-            elif numero_plot in ["8.1", "8.2"]:
+            elif numero_plot in ["8"]:
 
-                if self.fit_results is None:
-
-                    messagebox.showwarning(
-                        "Warning",
-                        "Please execute Plot 7 before Plot 8."
-                    )
-                    return
 
                 self.current_fig = pt.plot_8(
                     fichiers,
                     self.datasets,
-                    self.fit_results,
-                    choice_sub=float(numero_plot),
-                    **base_kwargs
+                    frame=self.plot_frame,
+                    **self._get_plot_kwargs()
                 )
 
                 summary = "==================================================\n"
