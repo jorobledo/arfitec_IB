@@ -186,6 +186,14 @@ class NeutronApp:
             anchor="nw"
         )
 
+        self.control_canvas.bind(
+            "<Configure>",
+            lambda e: self.control_canvas.itemconfig(
+                self.control_window,
+                width=e.width
+            )
+        )
+
         # auto update of the scroll zone
         self.control_frame.bind(
             "<Configure>",
