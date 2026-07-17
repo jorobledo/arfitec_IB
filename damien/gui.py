@@ -549,11 +549,11 @@ class NeutronApp:
 
         self.show_logx_var = tk.BooleanVar(value=False)
         self.show_logy_var = tk.BooleanVar(value=False)
-        self.show_fluxE_var = tk.BooleanVar(value=False)
-        self.show_maxwell_var = tk.BooleanVar(value=True)
-        self.show_tof_var = tk.BooleanVar(value=True)
+        self.show_fluxE_var = tk.BooleanVar(value=True)
+        self.show_maxwell_var = tk.BooleanVar(value=False)
+        self.show_tof_var = tk.BooleanVar(value=False)
         self.show_tof_epi_var = tk.BooleanVar(value=True)
-        self.show_epi_var = tk.BooleanVar(value=True)
+        self.show_epi_var = tk.BooleanVar(value=False)
 
         self.display_frame = tk.LabelFrame(
             self.control_frame,
@@ -1978,6 +1978,22 @@ class NeutronApp:
 
         return kwargs
 
+    def show_plot8_controls(self):
+        """
+        Show Plot 8 specific controls.
+        """
+        self.plot8_options.pack(
+            fill="x",
+            padx=10,
+            pady=10
+        )
+
+    def hide_plot8_controls(self):
+        """
+        Hide all Plot 8 specific controls.
+        """
+        self.plot8_options.pack_forget()
+
 
     def execute_analysis_plot(self):
 
@@ -1990,6 +2006,8 @@ class NeutronApp:
             return
 
         fichiers, base_kwargs = prepared
+
+        self.hide_plot8_controls()
 
         import plot as pt
 
@@ -2086,6 +2104,8 @@ class NeutronApp:
             return
 
         fichiers, base_kwargs = prepared
+
+        self.hide_plot8_controls()
 
         import plot as pt
 
@@ -2222,7 +2242,7 @@ class NeutronApp:
 
             elif numero_plot in ["8"]:
 
-
+                self.show_plot8_controls()
                 self.current_fig = pt.plot_8(
                     fichiers,
                     self.datasets,
@@ -2273,7 +2293,7 @@ class NeutronApp:
 
     def execute_flux_tof(self):
         """Plot the corrected neutron flux in the Time-of-Flight domain."""
-
+        self.hide_plot8_controls()
         prepared = self._prepare_plot_execution()
 
         if prepared is None:
@@ -2296,7 +2316,7 @@ class NeutronApp:
 
     def execute_flux_energy(self):
         """Plot the corrected neutron flux in the Energy domain."""
-
+        self.hide_plot8_controls()
         prepared = self._prepare_plot_execution()
 
         if prepared is None:
