@@ -513,7 +513,7 @@ class NeutronApp:
         
         # Example of NAA options (to adapt based on plot_NAA.py functions)
         naa_options = [
-            ("Gamma Spectrum Analysis", "NAA_1"),
+            ("Thermal and Epithermal Flux", "NAA_1"),
             ("Decay Curve Fitting", "NAA_2"),
             ("Elemental Concentration", "NAA_3"),
         ]
@@ -1327,64 +1327,6 @@ class NeutronApp:
     #     except Exception as e:
     #         messagebox.showerror("Plot Error", str(e))
 
-    def execute_flux_tof(self):
-        """Plot the corrected neutron flux in the Time-of-Flight domain."""
-
-        if not self.datasets:
-            messagebox.showwarning("Warning", "Please load data files first.")
-            return
-
-        if not self.ordre_selection:
-            messagebox.showwarning(
-                "Selection Error",
-                "Please select at least one file."
-            )
-            return
-
-        fichiers = [self.file_listbox.get(i) for i in self.ordre_selection]
-
-        self.clear_plot()
-
-        import plot as pt
-
-        self.current_fig = pt.plot_flux_tof(
-            fichiers,
-            self.datasets,
-            frame=self.plot_frame
-        )
-
-        self.update_live_zoom()
-        self._reconfigure_y_sliders()
-
-    def execute_flux_energy(self):
-        """Plot the corrected neutron flux in the Energy domain."""
-
-        if not self.datasets:
-            messagebox.showwarning("Warning", "Please load data files first.")
-            return
-
-        if not self.ordre_selection:
-            messagebox.showwarning(
-                "Selection Error",
-                "Please select at least one file."
-            )
-            return
-
-        fichiers = [self.file_listbox.get(i) for i in self.ordre_selection]
-
-        self.clear_plot()
-
-        import plot as pt
-
-        self.current_fig = pt.plot_flux_energy(
-            fichiers,
-            self.datasets,
-            frame=self.plot_frame
-        )
-
-        self.update_live_zoom()
-        self._reconfigure_y_sliders()
-
     
     def _reconfigure_y_sliders(self):
         """Automatically adjusts Y slider bounds relative to graph data."""
@@ -1893,8 +1835,9 @@ class NeutronApp:
         self.display_y_max.set(ymax)        
 
     def on_change_y_limits(self, val=None):
-        self.apply_y_limits = True
-        self.update_live_zoom(val)
+        if self.current_fig is not None:
+                self.update_live_zoom()
+                self._reconfigure_y_sliders()
 
     def update_live_zoom(self, val=None):
         if not hasattr(self, 'current_fig') or self.current_fig is None:
@@ -1985,14 +1928,14 @@ class NeutronApp:
             choix
         )
 
-        self.update_live_zoom()
+        if self.current_fig is not None:
+                self.update_live_zoom()
+                self._reconfigure_y_sliders()
 
-        self._reconfigure_y_sliders()
-
-        current_stats = self.txt_stats.get(
-            "1.0",
-            tk.END
-        ).strip()
+        try:
+            current_stats = self.txt_stats.get("1.0", tk.END).strip()
+        except Exception:
+            current_stats = "No integration or fit statistics recorded for this view."
 
         self.add_to_history(
             choix,
@@ -2049,7 +1992,7 @@ class NeutronApp:
                 import plot_NAA as pt_naa
 
                 if numero_plot == "NAA_1":
-                    self.current_fig = pt_naa.plot_gamma_spectrum(
+                    self.current_fig = pt_naa.compare_flux(
                         fichiers,
                         self.datasets,
                         **base_kwargs
@@ -2313,6 +2256,52 @@ class NeutronApp:
                 str(e)
             )
 
+
+    def execute_flux_tof(self):
+        """Plot the corrected neutron flux in the Time-of-Flight domain."""
+
+        prepared = self._prepare_plot_execution()
+
+        if prepared is None:
+            return
+
+        fichiers, base_kwargs = prepared
+
+        self.clear_plot()
+
+        import plot as pt
+
+        self.current_fig = pt.plot_flux_tof(
+            fichiers,
+            self.datasets,
+            **base_kwargs
+
+        )
+
+        self._finalize_plot_execution(numero_plot="ToF_Flux", fichiers=fichiers, choix="ToF-Flux")
+
+    def execute_flux_energy(self):
+        """Plot the corrected neutron flux in the Energy domain."""
+
+        prepared = self._prepare_plot_execution()
+
+        if prepared is None:
+            return
+
+        fichiers, base_kwargs = prepared
+
+        self.clear_plot()
+
+        import plot as pt
+
+        self.current_fig = pt.plot_flux_energy(
+            fichiers,
+            self.datasets,
+            **base_kwargs
+        )
+
+        self._finalize_plot_execution(numero_plot="Energy_Flux", fichiers=fichiers, choix="Energy-Flux")
+
     
     def _show_markdown_file(self, title, filename):
         """
@@ -2507,6 +2496,9 @@ class NeutronApp:
             txt.insert("end", line[pos:] + "\n")
 
         txt.config(state="disabled")
+
+
+    
 
     def show_user_guide(self):
         self._show_markdown_file("User Guide", "user_guide.md")

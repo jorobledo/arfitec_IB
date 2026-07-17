@@ -730,18 +730,21 @@ def plot_flux_tof(fichiers, datasets, frame=None):
         data = datasets[nom]
 
         # Using errorbar to display the vertical uncertainty vector (unc_tof)
-        ax.errorbar(
+        lines, caps, bars = ax.errorbar(
             data["ToF"] * 1e6,
             data["flux_tof"],
             yerr=data["unc_tof"],
-            fmt='-',
+            fmt='o-',
             linewidth=1.5,
             elinewidth=0.8,
             capsize=1.5,
-            alpha=0.8,
-            ecolor=None,  # Automatically matches the line color
+            markersize=3,
             label=nom
         )
+
+        for bar in bars:
+            bar.set_alpha(0.4)
+    
 
     ax.set_xlabel("Time of Flight (µs)")
     ax.set_ylabel("Corrected Flux")
@@ -770,17 +773,19 @@ def plot_flux_energy(fichiers, datasets, frame=None):
         data = datasets[nom]
 
         # Using errorbar to display the vertical uncertainty vector on the energy scale
-        ax.errorbar(
+        lines, caps, bars = ax.errorbar(
             data["E"],
             data["flux_E2"],
             yerr=data["unc_E2"],  # Propagated uncertainty vector tracking
-            fmt='-',
+            fmt='o-',
             linewidth=1.5,
             elinewidth=0.8,
             capsize=1.5,
-            alpha=0.8,
+            markersize=3,
             label=nom
         )
+        for bar in bars:
+            bar.set_alpha(0.4)
 
     ax.set_xscale("log")
     ax.set_xlabel("Energy (eV)")
