@@ -470,7 +470,7 @@ class NeutronApp:
         self.quit_button = tk.Button(
             self.control_frame,
             text="Quit",
-            command=self.root.destroy,
+            command=self.quit_application,
             width=30,
             bg="#a03737",
             fg=TEXT_LIGHT,
@@ -1573,6 +1573,20 @@ class NeutronApp:
         self.current_fig = fig
         self.apply_y_limits = False
 
+    def quit_application(self):
+        """Safely closes all matplotlib figures, destroys the GUI, and exits Python."""
+        import sys
+        import matplotlib.pyplot as plt
+        
+        # 1. Close all open Matplotlib windows to free memory
+        plt.close('all')
+        
+        # 2. Destroy the Tkinter root window
+        self.root.destroy()
+        
+        # 3. Force exit the Python process to give back control to the terminal
+        sys.exit(0)
+
     def show_analysis_menu(self):
 
         x = self.select_plot_button.winfo_rootx()
@@ -1836,8 +1850,8 @@ class NeutronApp:
 
     def on_change_y_limits(self, val=None):
         if self.current_fig is not None:
+                self.apply_y_limits = True
                 self.update_live_zoom()
-                self._reconfigure_y_sliders()
 
     def update_live_zoom(self, val=None):
         if not hasattr(self, 'current_fig') or self.current_fig is None:

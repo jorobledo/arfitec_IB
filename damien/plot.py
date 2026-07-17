@@ -720,6 +720,11 @@ def plot_flux_tof(fichiers, datasets, frame=None):
     Plot corrected neutron flux in the Time-of-Flight domain with uncertainties.
     Multiple datasets can be superimposed.
     """
+
+    t_min = PARAMS['t_min']
+    t_max = PARAMS['t_max']
+        
+
     if frame is not None:
         for widget in frame.winfo_children():
             widget.destroy()
@@ -728,12 +733,17 @@ def plot_flux_tof(fichiers, datasets, frame=None):
 
     for nom in fichiers:
         data = datasets[nom]
+        mask = ((data['ToF'] >= t_min)& (data['ToF'] <= t_max))
+
+        x = data["ToF"][mask] * 1e6  # Convert ToF to microseconds for plotting
+        y = data["flux_tof"][mask]
+        err = data["unc_tof"][mask]
 
         # Using errorbar to display the vertical uncertainty vector (unc_tof)
         lines, caps, bars = ax.errorbar(
-            data["ToF"] * 1e6,
-            data["flux_tof"],
-            yerr=data["unc_tof"],
+            x,
+            y,
+            yerr=err,
             fmt='o-',
             linewidth=1.5,
             elinewidth=0.8,
@@ -763,6 +773,10 @@ def plot_flux_energy(fichiers, datasets, frame=None):
     Uses flux_E2 = Flux(E) × E.
     Multiple datasets can be superimposed.
     """
+
+    E_min        = PARAMS['E_min']
+    E_max        = PARAMS['E_max']
+      
     if frame is not None:
         for widget in frame.winfo_children():
             widget.destroy()
@@ -771,12 +785,17 @@ def plot_flux_energy(fichiers, datasets, frame=None):
 
     for nom in fichiers:
         data = datasets[nom]
+        mask_E = (data["E"] >= E_min) & (data["E"] <= E_max)
+
+        x = data["E"][mask_E]
+        y = data["flux_E2"][mask_E]
+        err = data["unc_E2"][mask_E]
 
         # Using errorbar to display the vertical uncertainty vector on the energy scale
         lines, caps, bars = ax.errorbar(
-            data["E"],
-            data["flux_E2"],
-            yerr=data["unc_E2"],  # Propagated uncertainty vector tracking
+            x,
+            y,
+            yerr=err,  # [Propagated] uncertainty vector tracking
             fmt='o-',
             linewidth=1.5,
             elinewidth=0.8,
