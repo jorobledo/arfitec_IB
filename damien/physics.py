@@ -592,12 +592,56 @@ def transmission_coeff(flux_sample, flux0):
 def cross_section(Tr, d, n):
     return -1/(n*d)*np.log(Tr)*1e24
 
+def integrate_thermal_epithermal_flux(t, flux_ToF):
+    """
+    Integrates the energy flux over physical ranges to compute 
+    thermal and epithermal integrated neutron flux values.
+    
+    Ranges (converted to eV):
+      - Thermal: 3 meV to 500 meV (0.003 eV to 0.5 eV)
+      - Epithermal: 500 meV to 1 MeV (0.5 eV to 1,000,000 eV)
+    """
+    # Define physical boundary limits in eV
+    e_min_th = 0.003
+    t_max_th = 2505e-6
+    e_boundary = 0.5
+    t_boundary = 194e-6
+    e_max_epi = 1e6
+    t_min_epi = 0.14e-6
+
+    t_pulse = 153e-6
+    surf_pulse = 4.5e-1 * 1
+
+    # --- 1. Thermal Flux Integration ---
+    thermal_mask = (t >= t_boundary) & (t <= t_max_th)
+    t_thermal = t[thermal_mask]
+    flux_thermal = flux_ToF[thermal_mask]
+    
+    if len(flux_thermal) > 0:
+        integrated_thermal = np.sum(flux_thermal)
+    else:
+        integrated_thermal = 0.0
+
+    # --- 2. Epithermal Flux Integration ---
+    epithermal_mask = (t >= t_min_epi) & (t < t_boundary)
+    t_epithermal = t[epithermal_mask]
+    flux_epithermal = flux_ToF[epithermal_mask]
+    
+    if len(flux_epithermal) > 0:
+        integrated_epithermal = np.sum(flux_epithermal)
+    else:
+        integrated_epithermal = 0.0
+
+    return integrated_thermal / t_pulse / surf_pulse  , integrated_epithermal/ t_pulse / surf_pulse
+
 
 def process_neutron_data(fichier):
     """Execute the entire processing pipeline for a given file."""
     # 1. File loading and metadata
     meta = load_metadata(fichier)
     channels, counts = np.loadtxt(fichier, skiprows=15, unpack=True)
+
+    unc_counts = np.sqrt(counts)  # Poisson uncertainty
     
     # 2. Corrections primaires (Temps mort, bruit de fond)
     counts_dt = apply_dead_time_correction(counts, meta['dead_time'], meta['nbr_frames'], meta['channel_width'])
@@ -636,6 +680,8 @@ def process_neutron_data(fichier):
     # Clean output dictionary
     return {
         'meta': meta,
+        'counts': counts,
+        'unc_counts': unc_counts,
         'channels': channels,
         'channels_grouped': channels_grouped,
         'ToF': ToF,
