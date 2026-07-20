@@ -610,12 +610,12 @@ def integrate_thermal_epithermal_flux(t, flux_ToF):
     t_min_epi = 0.14e-6
 
     t_pulse = 153e-6
-    surf_pulse = 4.5e-1 * 1
+    surf_pulse = (3+1)*0.1/2 * 1 #surface of a trapeze (1mm ascent + 1mm constante + 1mm descent with (slit 1mm) per 10mm length)
 
     # --- 1. Thermal Flux Integration ---
     thermal_mask = (t >= t_boundary) & (t <= t_max_th)
     t_thermal = t[thermal_mask]
-    flux_thermal = flux_ToF[thermal_mask]
+    flux_thermal = flux_ToF
     
     if len(flux_thermal) > 0:
         integrated_thermal = np.sum(flux_thermal)
@@ -653,6 +653,7 @@ def process_neutron_data(fichier):
     flux_normalise = counts_bg_corr / meta['nbr_frames']
     therm_norm_flux = therm_counts / meta['nbr_frames']
     unc_normalisee = np.sqrt(counts) / meta['nbr_frames']
+    unc_normalisee_corr = apply_dead_time_correction(unc_normalisee, meta['dead_time'], meta['nbr_frames'], meta['channel_width'])
     
     # 3. Calculate time kinetics (ToF)
     ToF = (meta['channel_width'] * channels * 1e-6) - ED
@@ -663,18 +664,18 @@ def process_neutron_data(fichier):
     eff_ToF = compute_efficiency_tof(ToF, meta['path_length'])
     flux_tof_ungrouped = flux_normalise / eff_ToF
     flux_final_tof = flux_lisse / eff_ToF
-    unc_flux_reelle = unc_normalisee / eff_ToF
+    unc_flux_reelle = unc_normalisee_corr / eff_ToF
     
     # 5. Grouping method 2 (Packets of 10)
     flux_grouped = apply_grouping_methode2(flux_normalise)
     channels_grouped = apply_grouping_methode2(channels)
     ToF_grouped = apply_grouping_methode2(ToF)
-    unc_grouped = apply_grouping_methode2(unc_normalisee) / np.sqrt(10)
+    unc_grouped = apply_grouping_methode2(unc_normalisee_corr) / np.sqrt(10)
     
     flux_tof_grouped = apply_grouping_methode2(flux_final_tof)
     
     # 6. Change of variable to Energy Domain
-    E, flux_E, flux_E2, unc_E, unc_E2= convert_to_energy_scale(flux_final_tof, ToF, meta['path_length'], unc_normalisee)
+    E, flux_E, flux_E2, unc_E, unc_E2= convert_to_energy_scale(flux_final_tof, ToF, meta['path_length'], unc_normalisee_corr)
     eff_E = compute_efficiency_energy(E)
     
     # Clean output dictionary
@@ -693,7 +694,8 @@ def process_neutron_data(fichier):
         'flux_tof_ungrouped':flux_tof_ungrouped,
         'flux_tof': flux_final_tof,
         'flux_tof_grouped': flux_tof_grouped,
-        'unc_tof': unc_normalisee,
+        'unc_tof_norm': unc_normalisee,
+        'unc_tof': unc_normalisee_corr,
         'unc_tof_grouped': unc_grouped,
         'unc_flux_reelle':unc_flux_reelle,
         'E': E,

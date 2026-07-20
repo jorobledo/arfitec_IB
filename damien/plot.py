@@ -77,7 +77,7 @@ def plot_2(fichiers, datasets, frame=None):
     for i, nom in enumerate(fichiers):
         data = datasets[nom]
         
-        p_exp = ax.errorbar(data['channels'], data['mean_therm_norm_flux'], yerr=data['unc_tof'], fmt='.', markersize=5, capsize=2, label=f"{nom} - experimental")
+        p_exp = ax.errorbar(data['channels'], data['mean_therm_norm_flux'], yerr=data['unc_tof_norm'], fmt='.', markersize=5, capsize=2, label=f"{nom} - experimental")
         
         base_color = p_exp[0].get_color()
         rgb = mcolors.to_rgb(base_color)

@@ -69,8 +69,8 @@ def compare_flux(fichiers, datasets, frame=None):
     # For NAA, we calculate R and R_Cd using physical defaults.
     # Replace the arguments of get_R with your experimental counts/times (t_i, t_d, t_m) if needed.
     try:
-        r_bare = get_R(counts=10000, t_i=7200, t_d=2000, t_m=1800, m=PARAMS["m_mn"])  # Example placeholder physical values
-        r_cadmium = get_R(counts=2000, t_i=7200, t_d=2000, t_m=1800, m=PARAMS["m_mn_cd"])  # Example placeholder physical values
+        r_bare = get_R(counts=66000, t_i=12360, t_d=3120, t_m=3600, m=PARAMS["m_mn"])  # Example placeholder physical values
+        r_cadmium = get_R(counts=2700, t_i=17160    , t_d=1200, t_m=(54000), m=PARAMS["m_mn_cd"])  # Example placeholder physical values
         phi_th_naa, phi_epi_naa = get_flux(r_bare, r_cadmium)
     except Exception as e:
         # Fallback values to prevent GUI crashes if inputs are missing
