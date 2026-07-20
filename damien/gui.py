@@ -549,6 +549,17 @@ class NeutronApp:
 
         self.show_logx_var = tk.BooleanVar(value=False)
         self.show_logy_var = tk.BooleanVar(value=False)
+
+        # ==================================================
+        # FLUX TOF DISPLAY OPTIONS
+        # ==================================================
+
+        self.show_correction_var = tk.StringVar(value='all')
+        self.grouping_method_var = tk.StringVar(value="method1")
+
+        # ==================================================
+        # PLOT 8 DISPLAY OPTIONS
+        # ==================================================
         self.show_fluxE_var = tk.BooleanVar(value=True)
         self.show_maxwell_var = tk.BooleanVar(value=False)
         self.show_tof_var = tk.BooleanVar(value=False)
@@ -573,8 +584,11 @@ class NeutronApp:
 
         # ----- Global options -----
 
+        self.log_frame = tk.Frame(self.display_frame)
+        self.log_frame.pack(anchor="w", pady=5)
+
         tk.Checkbutton(
-            self.display_frame,
+            self.log_frame,
             text="Log x",
             variable=self.show_logx_var,
             bg=BG_DARK,
@@ -582,12 +596,183 @@ class NeutronApp:
             selectcolor=BG_DARK,
             activebackground=BG_DARK,
             activeforeground=TEXT_LIGHT
-        ).pack(anchor="w")
+        ).pack(side=tk.LEFT, anchor='w', fill='x')
 
         tk.Checkbutton(
-            self.display_frame,
+            self.log_frame,
             text="Log y",
             variable=self.show_logy_var,
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT
+        ).pack(side=tk.LEFT, anchor='w', fill='x')
+
+        # ----- flux tof options ----
+
+        self.flux_tof_frame = tk.Frame(
+            self.display_frame,
+            bg=BG_DARK,
+        )
+        self.flux_tof_frame.pack(side=tk.TOP, anchor="w", padx=5, pady=2)
+
+        tk.Label(
+            self.flux_tof_frame,
+            text="Flux tof Options",
+            bg=BG_DARK,
+            fg="#87cefa",
+            font=("Segoe UI",10,"bold")
+        ).pack(side=tk.TOP, anchor="w", padx=5, pady=(0,2), fill='x')
+
+        processing_frame = tk.LabelFrame(
+            self.flux_tof_frame,
+            text="Processing",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            font=FONT_MAIN
+        )
+        processing_frame.pack(fill="x", padx=5, pady=5)
+
+
+        self.raw_check = tk.Radiobutton(
+            processing_frame,
+            text="Raw data",
+            variable=self.show_correction_var,
+            value="raw",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT,
+            font=FONT_MAIN,
+            anchor="w"
+        )
+        self.raw_check.pack(anchor="w", padx=5, pady=2)
+
+        self.background_check = tk.Radiobutton(
+            processing_frame,
+            text="Background correction",
+            variable=self.show_correction_var,
+            value="bg",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT,
+            font=FONT_MAIN,
+            anchor="w"
+        )
+        self.background_check.pack(anchor="w", padx=5, pady=2)
+
+        self.deadtime_check = tk.Radiobutton(
+            processing_frame,
+            text="Dead Time correction",
+            variable=self.show_correction_var,
+            value="deadtime",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT,
+            font=FONT_MAIN,
+            anchor="w"
+        )
+        self.deadtime_check.pack(anchor="w", padx=5, pady=2)
+
+        self.corrected_check = tk.Radiobutton(
+            processing_frame,
+            text="All corrections",
+            variable=self.show_correction_var,
+            value="all",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT,
+            font=FONT_MAIN,
+            anchor="w"
+        )
+        self.corrected_check.pack(anchor="w", padx=5, pady=2)
+
+
+
+        group_frame = tk.LabelFrame(
+            self.flux_tof_frame,
+            text="Grouping",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            font=FONT_MAIN
+        )
+
+        group_frame.pack(fill="x", padx=5, pady=5)
+
+        self.group_none = tk.Radiobutton(
+            group_frame,
+            text="Ungrouped",
+            variable=self.grouping_method_var,
+            value="none",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT,
+            font=FONT_MAIN,
+            anchor="w"
+        )
+        self.group_none.pack(anchor="w", padx=5, pady=2)
+
+        self.group_method1 = tk.Radiobutton(
+            group_frame,
+            text="Grouping method 1",
+            variable=self.grouping_method_var,
+            value="method1",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT,
+            font=FONT_MAIN,
+            anchor="w"
+        )
+        self.group_method1.pack(anchor="w", padx=5, pady=2)
+
+        self.group_method2 = tk.Radiobutton(
+            group_frame,
+            text="Grouping method 2",
+            variable=self.grouping_method_var,
+            value="method2",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT,
+            font=FONT_MAIN,
+            anchor="w"
+        )
+        self.group_method2.pack(anchor="w", padx=5, pady=2)
+
+        # ----- flux E options ----
+
+        self.flux_E_frame = tk.Frame(
+            self.display_frame,
+            bg=BG_DARK,
+        )
+        self.flux_E_frame.pack(side=tk.TOP, anchor="w", padx=5, pady=2)
+
+        tk.Label(
+            self.flux_E_frame,
+            text="Flux Energy Options",
+            bg=BG_DARK,
+            fg="#87cefa",
+            font=("Segoe UI",10,"bold")
+        ).pack(side=tk.TOP, anchor="w", padx=5, pady=(0,2), fill='x')
+
+        # Flux representation
+        tk.Checkbutton(
+            self.flux_E_frame,
+            text="Flux × E",
+            variable=self.show_fluxE_var,
             bg=BG_DARK,
             fg=TEXT_LIGHT,
             selectcolor=BG_DARK,
@@ -602,7 +787,7 @@ class NeutronApp:
             bg=BG_DARK
         )
 
-        self.plot8_options.pack(
+        self.plot8_options.pack(side=tk.TOP, anchor='w',
             fill="x",
             pady=(8,0)
         )
@@ -613,7 +798,7 @@ class NeutronApp:
             bg=BG_DARK,
             fg="#87cefa",
             font=("Segoe UI",10,"bold")
-        ).pack(anchor="w")
+        ).pack(anchor="w", fill="x")
 
         # Flux representation
         tk.Checkbutton(
@@ -674,6 +859,8 @@ class NeutronApp:
 
         # Hide Plot 8 options at startup
         self.plot8_options.pack_forget()
+        self.flux_tof_frame.pack_forget()
+        self.flux_E_frame.pack_forget()
             
 
         # LEFT PANEL: COMPACT AND DISTINCT ACTIONS
@@ -1967,6 +2154,13 @@ class NeutronApp:
             "show_logy": self.show_logy_var.get(),
         }
 
+        if self.selected_fit_id.startswith("2"):   # Flux ToF
+
+            kwargs.update({
+                "show_correction": self.show_correction_var.get(),
+                "grouping_method": self.grouping_method_var.get(),
+            })
+
         if self.selected_fit_id.startswith("8"):
             kwargs.update({
                 "show_fluxE": self.show_fluxE_var.get(),
@@ -1979,20 +2173,31 @@ class NeutronApp:
         return kwargs
 
     def show_plot8_controls(self):
-        """
-        Show Plot 8 specific controls.
-        """
         self.plot8_options.pack(
             fill="x",
             padx=10,
             pady=10
         )
+    def show_flux_tof_controls(self):
+        self.flux_tof_frame.pack(
+            fill="x",
+            padx=10,
+            pady=10
+        )
+    def show_flux_E_controls(self):
+        self.flux_E_frame.pack(
+            fill="x",
+            padx=10,
+            pady=10
+        )
 
-    def hide_plot8_controls(self):
+    def hide_all_controls(self):
         """
-        Hide all Plot 8 specific controls.
+        Hide all Plot specific controls.
         """
         self.plot8_options.pack_forget()
+        self.flux_tof_frame.pack_forget()
+        self.flux_E_frame.pack_forget()
 
 
     def execute_analysis_plot(self):
@@ -2007,7 +2212,7 @@ class NeutronApp:
 
         fichiers, base_kwargs = prepared
 
-        self.hide_plot8_controls()
+        self.hide_all_controls()
 
         import plot as pt
 
@@ -2105,7 +2310,7 @@ class NeutronApp:
 
         fichiers, base_kwargs = prepared
 
-        self.hide_plot8_controls()
+        self.hide_all_controls()
 
         import plot as pt
 
@@ -2293,7 +2498,8 @@ class NeutronApp:
 
     def execute_flux_tof(self):
         """Plot the corrected neutron flux in the Time-of-Flight domain."""
-        self.hide_plot8_controls()
+        self.hide_all_controls()
+        self.show_flux_tof_controls()
         prepared = self._prepare_plot_execution()
 
         if prepared is None:
@@ -2316,7 +2522,8 @@ class NeutronApp:
 
     def execute_flux_energy(self):
         """Plot the corrected neutron flux in the Energy domain."""
-        self.hide_plot8_controls()
+        self.hide_all_controls()
+        self.show_flux_E_controls()
         prepared = self._prepare_plot_execution()
 
         if prepared is None:
