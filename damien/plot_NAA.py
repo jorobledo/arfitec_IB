@@ -1,9 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from physics_NAA import PARAMS, get_R, get_flux, get_lambda, model_tof_epi_NAA
 from physics import integrate_thermal_epithermal_flux
+
 
 
 # def plot_counts(file_path):
@@ -151,4 +153,78 @@ def compare_flux(fichiers, datasets, frame=None):
     fig = plt.figure(figsize=(1, 1))
     plt.close(fig) # Keep pyplot manager memory clean
     return None
-    
+
+
+def plot_spectrum_spe(fichier, frame=None):
+    """
+    Read a .Spe spectrum and plot the counts as a function of energy.
+    """
+
+    counts = []
+
+    with open(fichier, "r") as f:
+        lines = f.readlines()
+
+    # Locate the data block
+    start = None
+    n_channels = None
+
+    for i, line in enumerate(lines):
+        if "$DATA:" in line:
+            start = i + 2               # next line contains "first last"
+            first, last = map(int, lines[i + 1].split())
+            n_channels = last - first + 1
+            break
+
+    if start is None:
+        raise ValueError("No $DATA section found in the .Spe file.")
+
+    for line in lines[start:start + n_channels]:
+        counts.append(float(line.strip()))
+
+    counts = np.asarray(counts)
+
+    # Energy axis (1 channel = 1 keV)
+    energy = np.arange(len(counts), dtype=float)
+
+    # Statistical uncertainty
+    sigma = np.sqrt(counts)
+
+    # ---------------- Plot ----------------
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Histogram
+    ax.step(energy, counts,
+            where="mid",
+            color="royalblue",
+            linewidth=1.5,
+            label="Spectrum")
+
+    # Error bars
+    ax.errorbar(
+        energy,
+        counts,
+        yerr=sigma,
+        fmt="none",
+        ecolor="black",
+        elinewidth=0.6,
+        alpha=0.5,
+        capsize=0,
+        label=r"Statistical uncertainty ($\sqrt{N}$)"
+    )
+
+    ax.set_xlabel("Energy (keV)", fontsize=13)
+    ax.set_ylabel("Counts", fontsize=13)
+    ax.set_title("Gamma spectrum", fontsize=15)
+
+    ax.grid(True, which="both", linestyle="--", alpha=0.4)
+    ax.legend()
+    ax.set_yscale("log")
+
+    plt.tight_layout()
+    plt.show()
+
+    return fig
+
+

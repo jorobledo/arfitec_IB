@@ -514,7 +514,7 @@ class NeutronApp:
         # Example of NAA options (to adapt based on plot_NAA.py functions)
         naa_options = [
             ("Thermal and Epithermal Flux", "NAA_1"),
-            ("Decay Curve Fitting", "NAA_2"),
+            ("Germanium histrogram spectrum", "NAA_2"),
             ("Elemental Concentration", "NAA_3"),
         ]
         for label, p_id in naa_options:
@@ -585,7 +585,7 @@ class NeutronApp:
         # ----- Global options -----
 
         self.log_frame = tk.Frame(self.display_frame)
-        self.log_frame.pack(anchor="w", pady=5)
+        self.log_frame.pack(pady=5)
 
         tk.Checkbutton(
             self.log_frame,
@@ -1359,14 +1359,20 @@ class NeutronApp:
 
     def _ask_reference_files(self, multiple=False):
         """Handles file explorer opening for reference files (Plots 11 and 12)."""
-        if not messagebox.askyesno("Reference File", "Do you want to compare with a reference file?"):
-            return ""
-        
+
         options = {
             "title": "Select reference cross section file(s)" if multiple else "Select reference cross section file",
-            "filetypes": [("Data files", "*.dat *.txt"), ("All files", "*.*")],
+            "filetypes": [("Data files", "*.dat *.txt *.spe"), ("All files", "*.*")],
             "initialdir": "data"
         }
+
+        if self.selected_analysis_id == 'NAA_2':
+            options["initialdir"]= "NAA"
+            if not messagebox.askyesno("Select .spe file", "Do you want to select the .spe file ?"):
+                return ""
+        else :
+            if not messagebox.askyesno("Reference File", "Do you want to compare with a reference file?"):
+                return ""        
         
         if multiple:
             paths = filedialog.askopenfilenames(**options)
@@ -2092,10 +2098,11 @@ class NeutronApp:
         """
 
         if not self.datasets:
+
             messagebox.showwarning(
-                "Warning",
-                "Please load data files first."
-            )
+            "Warning",
+            "Please load data files first."
+        )
             return None
 
         if not self.ordre_selection:
@@ -2205,13 +2212,6 @@ class NeutronApp:
         numero_plot = self.selected_analysis_id
         choix = self.selected_plot_label.get()
 
-        prepared = self._prepare_plot_execution()
-
-        if prepared is None:
-            return
-
-        fichiers, base_kwargs = prepared
-
         self.hide_all_controls()
 
         import plot as pt
@@ -2219,7 +2219,34 @@ class NeutronApp:
         try:
 
             self.clear_plot()
+
+            # ==========================================================
+            # NAA_2 : cas particulier
+            # ==========================================================
+
+            if numero_plot == "NAA_2":
+
+                import plot_NAA as pt_naa
+
+                fichier_ref = self._ask_reference_files(multiple=False)
+
+                if not fichier_ref:
+                    return
+
+                self.current_fig = pt_naa.plot_spectrum_spe(
+                    fichier_ref,
+                    **{"frame": self.plot_frame}
+                )
+
+                return
             
+            prepared = self._prepare_plot_execution()
+
+            if prepared is None:
+                return
+
+            fichiers, base_kwargs = prepared
+
             # ==========================================================
             # NAA ANALYSIS
             # ==========================================================
@@ -2235,10 +2262,8 @@ class NeutronApp:
                         **base_kwargs
                     )
 
-                elif numero_plot == "NAA_2":
-                    self.current_fig = pt_naa.plot_decay_curve(
-                        fichiers,
-                        self.datasets,
+                    self.current_fig = pt_naa.plot_spectrum_spe(
+                        fichier_ref[0]
                         **base_kwargs
                     )
 
