@@ -2262,11 +2262,6 @@ class NeutronApp:
                         **base_kwargs
                     )
 
-                    self.current_fig = pt_naa.plot_spectrum_spe(
-                        fichier_ref[0]
-                        **base_kwargs
-                    )
-
                 elif numero_plot == "NAA_3":
                     self.current_fig = pt_naa.plot_concentration(
                         fichiers,
