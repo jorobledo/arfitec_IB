@@ -134,10 +134,12 @@ def plot_spectrum_spe(fichier, frame=None):
     for line in lines[start:start + n_channels]:
         counts.append(float(line.strip()))
 
+    fact = 847 / 1652
+
     counts = np.asarray(counts)
 
     # Energy axis (1 channel = 1 keV)
-    energy = np.arange(len(counts), dtype=float)
+    energy = np.arange(len(counts), dtype=float) * fact
 
     # Statistical uncertainty
     sigma = np.sqrt(counts)
@@ -147,11 +149,8 @@ def plot_spectrum_spe(fichier, frame=None):
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Histogram
-    ax.step(energy, counts,
-            where="mid",
-            color="royalblue",
-            linewidth=1.5,
-            label="Spectrum")
+    ax.step(energy, counts, where="mid", color="navy", label='Spectrum')
+    ax.fill_between(energy, counts, step="mid", alpha=0.4)
 
     # Error bars
     ax.errorbar(
@@ -172,7 +171,7 @@ def plot_spectrum_spe(fichier, frame=None):
 
     ax.grid(True, which="both", linestyle="--", alpha=0.4)
     ax.legend()
-    ax.set_yscale("log")
+    # ax.set_yscale("log")
 
     plt.tight_layout()
     _integrer_canvas(fig, frame)

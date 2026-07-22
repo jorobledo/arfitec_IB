@@ -868,8 +868,8 @@ class NeutronApp:
         self.btn_frame = tk.Frame(self.control_frame, bg=BG_DARK)
         self.btn_frame.pack(pady=2)
         
-        self.display_t_min = tk.DoubleVar(value=150)
-        self.display_t_max = tk.DoubleVar(value=3700)
+        self.display_t_min = tk.DoubleVar(value=200)
+        self.display_t_max = tk.DoubleVar(value=2000)
 
         self.display_E_min = tk.DoubleVar(value=0.003)
         self.display_E_max = tk.DoubleVar(value=0.2)
@@ -2043,8 +2043,9 @@ class NeutronApp:
 
     def on_change_y_limits(self, val=None):
         if self.current_fig is not None:
-                self.apply_y_limits = True
-                self.update_live_zoom()
+                if numero_plot not in ["NAA_2", "NAA_3"]:
+                    self.update_live_zoom()
+                    self._reconfigure_y_sliders()
 
     def update_live_zoom(self, val=None):
         if not hasattr(self, 'current_fig') or self.current_fig is None:
@@ -2137,8 +2138,9 @@ class NeutronApp:
         )
 
         if self.current_fig is not None:
-                self.update_live_zoom()
-                self._reconfigure_y_sliders()
+                if numero_plot not in ["NAA_2", "NAA_3"]:
+                    self.update_live_zoom()
+                    self._reconfigure_y_sliders()
 
         try:
             current_stats = self.txt_stats.get("1.0", tk.END).strip()
@@ -2232,14 +2234,21 @@ class NeutronApp:
 
                 if not fichier_ref:
                     return
-
+                
                 self.current_fig = pt_naa.plot_spectrum_spe(
                     fichier_ref,
                     **{"frame": self.plot_frame}
                 )
+                
+                fichiers = [fichier_ref]
+                self._finalize_plot_execution(
+                    numero_plot,
+                    fichiers,
+                    choix
+                )
 
                 return
-            
+
             prepared = self._prepare_plot_execution()
 
             if prepared is None:
