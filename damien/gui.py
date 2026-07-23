@@ -365,7 +365,7 @@ class NeutronApp:
         )
 
         # Current selected analysis
-        self.selected_analysis_id = "1"
+        self.current_plot_id = "1"
 
         self.selected_plot_label = tk.StringVar()
         self.selected_plot_label.set("Select Analysis")
@@ -414,8 +414,6 @@ class NeutronApp:
             pady=(1,8)
         )
 
-        # Current selected fit
-        self.selected_fit_id = "6"
 
         self.selected_fit_label = tk.StringVar()
         self.selected_fit_label.set("Select Fit")
@@ -1368,7 +1366,7 @@ class NeutronApp:
             "initialdir": "data"
         }
 
-        if self.selected_analysis_id == 'NAA_2':
+        if self.current_plot_id == 'NAA_2':
             options["initialdir"]= "NAA"
             if not messagebox.askyesno("Select .spe file", "Do you want to select the .spe file ?"):
                 return ""
@@ -1794,7 +1792,7 @@ class NeutronApp:
 
     def _set_analysis_plot(self, label, analysis_id):
 
-        self.selected_analysis_id = analysis_id
+        self.current_plot_id = analysis_id
         self.selected_plot_label.set(label)
 
     def show_fit_menu(self):
@@ -1807,7 +1805,7 @@ class NeutronApp:
 
     def _set_fit_plot(self, label, fit_id):
 
-        self.selected_fit_id = fit_id
+        self.current_plot_id = fit_id
         self.selected_fit_label.set(label)
 
         liste = ["8"]
@@ -1824,7 +1822,7 @@ class NeutronApp:
 
     def _set_current_analysis(self, label, analysis_id):
         """Updates selection variables and modifies button text."""
-        self.selected_analysis_id = analysis_id
+        self.current_plot_id = analysis_id
         self.selected_plot_label.set(label)
 
         
@@ -2063,7 +2061,7 @@ class NeutronApp:
         self.current_fig.canvas.draw_idle()       
 
     def on_change_y_limits(self, val=None):
-        current_plot = self.selected_analysis_id or self.selected_fit_id
+        current_plot = self.current_plot_id
         if self.current_fig is not None:
                 if current_plot not in ["NAA_2", "NAA_3"]:
                     self.update_live_zoom()
@@ -2184,14 +2182,14 @@ class NeutronApp:
             "show_logy": self.show_logy_var.get(),
         }
 
-        if self.selected_fit_id.startswith("2"):   # Flux ToF
+        if self.current_plot_id.startswith("2"):   # Flux ToF
 
             kwargs.update({
                 "show_correction": self.show_correction_var.get(),
                 "grouping_method": self.grouping_method_var.get(),
             })
 
-        if self.selected_fit_id.startswith("8"):
+        if self.current_plot_id.startswith("8"):
             kwargs.update({
                 "show_fluxE": self.show_fluxE_var.get(),
                 "show_maxwell": self.show_maxwell_var.get(),
@@ -2232,7 +2230,7 @@ class NeutronApp:
 
     def execute_analysis_plot(self):
 
-        numero_plot = self.selected_analysis_id
+        numero_plot = self.current_plot_id
         choix = self.selected_plot_label.get()
 
         self.hide_all_controls()
@@ -2352,7 +2350,7 @@ class NeutronApp:
 
     def execute_fit_plot(self):
 
-        numero_plot = self.selected_fit_id
+        numero_plot = self.current_plot_id
         choix = self.fit_button.cget("text")
 
         prepared = self._prepare_plot_execution()
