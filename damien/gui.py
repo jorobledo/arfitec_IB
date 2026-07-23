@@ -1214,10 +1214,91 @@ class NeutronApp:
         )
         self.copy_stats_button.pack(side=tk.LEFT)
 
+    # ============================================================================
+    # Plot configuration
+    # ============================================================================
+
+    PLOT_CONFIG = {
+
+        # --------------------------------------------------
+        # Flux
+        # --------------------------------------------------
+
+        "flux_tof": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "flux_energy": {
+            "default_logx": True,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        # --------------------------------------------------
+        # Fits
+        # --------------------------------------------------
+
+        "6": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "7.1": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "7.2": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "8": {
+            "default_logx": True,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": True,
+        },
+
+        # --------------------------------------------------
+        # NAA
+        # --------------------------------------------------
+
+        "NAA_1": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": False,
+            "plot8_options": False,
+        },
+
+        "NAA_2": {
+            "default_logx": False,
+            "default_logy": True,
+            "display_limits": False,
+            "plot8_options": False,
+        },
+
+    }
+
 
     # ======================================================
     # FUNCTIONS & METHODS
     # ======================================================
+
+    def get_plot_config(self):
+        cfg = self.PLOT_CONFIG.copy()
+        cfg.update(self.PLOT_CONFIG.get(self.current_plot, {}))
+        return cfg
 
     def maj_ordre_selection(self, event):
         indices_actuels = list(self.file_listbox.curselection())
@@ -1783,6 +1864,49 @@ class NeutronApp:
         # 3. Force exit the Python process to give back control to the terminal
         sys.exit(0)
 
+    
+    def apply_plot_configuration(self):
+        """
+        Configure the GUI according to the currently selected plot.
+        """
+        print(self.current_plot)
+        cfg = self.get_plot_config()
+
+        # --------------------------------------------------
+        # Global display options
+        # --------------------------------------------------
+
+        self.show_logx_var.set(
+            cfg.get("default_logx", False)
+        )
+
+        self.show_logy_var.set(
+            cfg.get("default_logy", False)
+        )
+
+        # --------------------------------------------------
+        # Plot 8 options
+        # --------------------------------------------------
+
+        if cfg.get("plot8_options", False):
+            self.plot8_options.pack(fill="x", pady=(8, 0))
+        else:
+            self.plot8_options.pack_forget()
+
+        # --------------------------------------------------
+        # Display limits
+        # --------------------------------------------------
+
+        if cfg.get("display_limits", True):
+            self.fit_frame.pack(
+                padx=12,
+                pady=(2, 8),
+                fill="x"
+            )
+        else:
+            self.fit_frame.pack_forget()
+
+
     def show_analysis_menu(self):
 
         x = self.select_plot_button.winfo_rootx()
@@ -1794,6 +1918,8 @@ class NeutronApp:
 
         self.current_plot_id = analysis_id
         self.selected_plot_label.set(label)
+
+        self.apply_plot_configuration()
 
     def show_fit_menu(self):
 
@@ -1808,17 +1934,7 @@ class NeutronApp:
         self.current_plot_id = fit_id
         self.selected_fit_label.set(label)
 
-        liste = ["8"]
-        if fit_id in liste:
-            self.show_logx_var.set(True)
-        else:
-            self.show_logx_var.set(False)         
-
-        # Show specific display options only for Plot 8
-        if fit_id.startswith("8"):
-            self.plot8_options.pack(fill="x", pady=(8, 0))
-        else:
-            self.plot8_options.pack_forget()
+        self.apply_plot_configuration()
 
     def _set_current_analysis(self, label, analysis_id):
         """Updates selection variables and modifies button text."""
@@ -2061,11 +2177,11 @@ class NeutronApp:
         self.current_fig.canvas.draw_idle()       
 
     def on_change_y_limits(self, val=None):
-        current_plot = self.current_plot_id
+        cfg = self.get_plot_config()
         if self.current_fig is not None:
-                if current_plot not in ["NAA_2", "NAA_3"]:
+                if cfg.get("display_limits", True):
                     self.update_live_zoom()
-
+    
     def update_live_zoom(self, val=None):
         if not hasattr(self, 'current_fig') or self.current_fig is None:
             return
@@ -2548,6 +2664,9 @@ class NeutronApp:
 
     def execute_flux_tof(self):
         """Plot the corrected neutron flux in the Time-of-Flight domain."""
+
+        self.current_plot = "flux_tof"
+        self.apply_plot_configuration()
         self.hide_all_controls()
         self.show_flux_tof_controls()
         prepared = self._prepare_plot_execution()
@@ -2573,7 +2692,9 @@ class NeutronApp:
 
     def execute_flux_energy(self):
         """Plot the corrected neutron flux in the Energy domain."""
-        self.show_logx_var.set(True)
+
+        self.current_plot = "flux_energy"
+        self.apply_plot_configuration()
         self.hide_all_controls()
         self.show_flux_E_controls()
         prepared = self._prepare_plot_execution()
