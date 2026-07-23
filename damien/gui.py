@@ -1566,6 +1566,9 @@ class NeutronApp:
         self.display_y_min.set(ymin_auto)
         self.display_y_max.set(ymax_auto)
 
+        # Réactivation
+        self.apply_y_limits = True
+
 
 
     def _process_plot_statistics(self, numero_plot, fichiers, choix):
@@ -2060,10 +2063,10 @@ class NeutronApp:
         self.current_fig.canvas.draw_idle()       
 
     def on_change_y_limits(self, val=None):
+        current_plot = self.selected_analysis_id or self.selected_fit_id
         if self.current_fig is not None:
-                if numero_plot not in ["NAA_2", "NAA_3"]:
+                if current_plot not in ["NAA_2", "NAA_3"]:
                     self.update_live_zoom()
-                    self._reconfigure_y_sliders()
 
     def update_live_zoom(self, val=None):
         if not hasattr(self, 'current_fig') or self.current_fig is None:
