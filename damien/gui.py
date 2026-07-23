@@ -548,7 +548,9 @@ class NeutronApp:
         # ==================================================
 
         self.show_logx_var = tk.BooleanVar(value=False)
+        self.show_logx_var.trace_add("write", self._apply_display_options)
         self.show_logy_var = tk.BooleanVar(value=False)
+        self.show_logy_var.trace_add("write", self._apply_display_options)
 
         # ==================================================
         # FLUX TOF DISPLAY OPTIONS
@@ -1805,13 +1807,17 @@ class NeutronApp:
         self.selected_fit_id = fit_id
         self.selected_fit_label.set(label)
 
+        liste = ["8"]
+        if fit_id in liste:
+            self.show_logx_var.set(True)
+        else:
+            self.show_logx_var.set(False)         
+
         # Show specific display options only for Plot 8
         if fit_id.startswith("8"):
             self.plot8_options.pack(fill="x", pady=(8, 0))
-            self.show_logx_var.set(True)
         else:
             self.plot8_options.pack_forget()
-            self.show_logx_var.set(False)
 
     def _set_current_analysis(self, label, analysis_id):
         """Updates selection variables and modifies button text."""
@@ -2039,7 +2045,19 @@ class NeutronApp:
             ymin = ymax * 0.99
 
         self.display_y_min.set(ymin)
-        self.display_y_max.set(ymax)        
+        self.display_y_max.set(ymax) 
+
+    def _apply_display_options(self, *args):
+
+        if self.current_fig is None:
+            return
+
+        ax = self.current_fig.axes[0]
+
+        ax.set_xscale("log" if self.show_logx_var.get() else "linear")
+        ax.set_yscale("log" if self.show_logy_var.get() else "linear")
+
+        self.current_fig.canvas.draw_idle()       
 
     def on_change_y_limits(self, val=None):
         if self.current_fig is not None:
@@ -2239,6 +2257,8 @@ class NeutronApp:
                     fichier_ref,
                     **{"frame": self.plot_frame}
                 )
+
+                self._apply_display_options()
                 
                 fichiers = [fichier_ref]
                 self._finalize_plot_execution(
@@ -2546,11 +2566,13 @@ class NeutronApp:
             **base_kwargs
 
         )
-
+        
+        self._apply_display_options()
         self._finalize_plot_execution(numero_plot="ToF_Flux", fichiers=fichiers, choix="ToF-Flux")
 
     def execute_flux_energy(self):
         """Plot the corrected neutron flux in the Energy domain."""
+        self.show_logx_var.set(True)
         self.hide_all_controls()
         self.show_flux_E_controls()
         prepared = self._prepare_plot_execution()
@@ -2570,6 +2592,7 @@ class NeutronApp:
             **base_kwargs
         )
 
+        self._apply_display_options()
         self._finalize_plot_execution(numero_plot="Energy_Flux", fichiers=fichiers, choix="Energy-Flux")
 
     
