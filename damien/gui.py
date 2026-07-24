@@ -876,7 +876,7 @@ class NeutronApp:
         self.display_y_min = tk.DoubleVar(value=PARAMS.get('y_min', 0.0))
         self.display_y_max = tk.DoubleVar(value=PARAMS.get('y_max', 20.0))
         
-        limits_frame = tk.LabelFrame(
+        self.limits_frame = tk.LabelFrame(
             self.control_frame,
             text="Display Limits",
             bg=BG_DARK,
@@ -884,21 +884,21 @@ class NeutronApp:
             font=FONT_BOLD
         )
         
-        limits_frame.pack(fill="x", padx=10, pady=10)
+        self.limits_frame.pack(fill="x", padx=10, pady=10)
         
         # ==================================================
         # t_min
         # ==================================================
         
         tk.Label(
-            limits_frame,
+            self.limits_frame,
             text="t_min (µs)",
             bg=BG_DARK,
             fg=TEXT_LIGHT
         ).grid(row=0, column=0, padx=5, pady=2, sticky="w")
         
         entry_tmin = tk.Entry(
-            limits_frame,
+            self.limits_frame,
             textvariable=self.display_t_min,
             width=10
         )
@@ -908,7 +908,7 @@ class NeutronApp:
         entry_tmin.bind("<Return>", self.update_live_zoom)
         
         tk.Scale(
-            limits_frame,
+            self.limits_frame,
             from_=0,
             to=1000,
             resolution=10,
@@ -929,14 +929,14 @@ class NeutronApp:
         # ==================================================
         
         tk.Label(
-            limits_frame,
+            self.limits_frame,
             text="t_max (µs)",
             bg=BG_DARK,
             fg=TEXT_LIGHT
         ).grid(row=1, column=0, padx=5, pady=2, sticky="w")
         
         entry_tmax = tk.Entry(
-            limits_frame,
+            self.limits_frame,
             textvariable=self.display_t_max,
             width=10
         )
@@ -946,7 +946,7 @@ class NeutronApp:
         entry_tmax.bind("<Return>", self.update_live_zoom)
         
         tk.Scale(
-            limits_frame,
+            self.limits_frame,
             from_=0,
             to=5000,
             resolution=10,
@@ -967,14 +967,14 @@ class NeutronApp:
         # ==================================================
         
         tk.Label(
-            limits_frame,
+            self.limits_frame,
             text="E_min (eV)",
             bg=BG_DARK,
             fg=TEXT_LIGHT
         ).grid(row=2, column=0, padx=5, pady=2, sticky="w")
         
         entry_emin = tk.Entry(
-            limits_frame,
+            self.limits_frame,
             textvariable=self.display_E_min,
             width=10
         )
@@ -984,7 +984,7 @@ class NeutronApp:
         entry_emin.bind("<Return>", self.update_live_zoom)
         
         tk.Scale(
-            limits_frame,
+            self.limits_frame,
             from_=0.001,
             to=0.01,
             resolution=0.001,
@@ -1005,14 +1005,14 @@ class NeutronApp:
         # ==================================================
         
         tk.Label(
-            limits_frame,
+            self.limits_frame,
             text="E_max (eV)",
             bg=BG_DARK,
             fg=TEXT_LIGHT
         ).grid(row=3, column=0, padx=5, pady=2, sticky="w")
         
         entry_emax = tk.Entry(
-            limits_frame,
+            self.limits_frame,
             textvariable=self.display_E_max,
             width=10
         )
@@ -1022,7 +1022,7 @@ class NeutronApp:
         entry_emax.bind("<Return>", self.update_live_zoom)
         
         tk.Scale(
-            limits_frame,
+            self.limits_frame,
             from_=0.01,
             to=1,
             resolution=0.01,
@@ -1041,14 +1041,14 @@ class NeutronApp:
         # Y_min
         # ==================================================
         tk.Label(
-            limits_frame,
+            self.limits_frame,
             text="Y min",
             bg=BG_DARK,
             fg=TEXT_LIGHT
         ).grid(row=4, column=0, padx=5, pady=2, sticky="w")
 
         entry_ymin = tk.Entry(
-            limits_frame,
+            self.limits_frame,
             textvariable=self.display_y_min,
             width=10
         )
@@ -1056,7 +1056,7 @@ class NeutronApp:
         entry_ymin.bind("<Return>", self.on_change_y_limits)
 
         tk.Scale(
-            limits_frame,
+            self.limits_frame,
             from_=0.0,
             to=100.0,
             resolution=0.1,
@@ -1075,14 +1075,14 @@ class NeutronApp:
         # Y_max
         # ==================================================
         tk.Label(
-            limits_frame,
+            self.limits_frame,
             text="Y max",
             bg=BG_DARK,
             fg=TEXT_LIGHT
         ).grid(row=5, column=0, padx=5, pady=2, sticky="w")
 
         entry_ymax = tk.Entry(
-            limits_frame,
+            self.limits_frame,
             textvariable=self.display_y_max,
             width=10
         )
@@ -1090,7 +1090,7 @@ class NeutronApp:
         entry_ymax.bind("<Return>", self.on_change_y_limits)
 
         tk.Scale(
-            limits_frame,
+            self.limits_frame,
             from_=0.1,
             to=200.0,
             resolution=0.1,
@@ -1297,7 +1297,7 @@ class NeutronApp:
 
     def get_plot_config(self):
         cfg = self.PLOT_CONFIG.copy()
-        cfg.update(self.PLOT_CONFIG.get(self.current_plot, {}))
+        cfg.update(self.PLOT_CONFIG.get(self.current_plot_id, {}))
         return cfg
 
     def maj_ordre_selection(self, event):
@@ -1869,7 +1869,6 @@ class NeutronApp:
         """
         Configure the GUI according to the currently selected plot.
         """
-        print(self.current_plot)
         cfg = self.get_plot_config()
 
         # --------------------------------------------------
@@ -1898,13 +1897,13 @@ class NeutronApp:
         # --------------------------------------------------
 
         if cfg.get("display_limits", True):
-            self.fit_frame.pack(
+            self.limits_frame.pack(
                 padx=12,
                 pady=(2, 8),
                 fill="x"
             )
         else:
-            self.fit_frame.pack_forget()
+            self.limits_frame.pack_forget()
 
 
     def show_analysis_menu(self):
@@ -1940,6 +1939,7 @@ class NeutronApp:
         """Updates selection variables and modifies button text."""
         self.current_plot_id = analysis_id
         self.selected_plot_label.set(label)
+        self.apply_plot_configuration()
 
         
     def action_grouper_fichiers(self):
@@ -2261,6 +2261,9 @@ class NeutronApp:
 
         return fichiers, base_kwargs
 
+    def plot_uses_display_limits(self):
+        return self.get_plot_config()["display_limits"]
+
     def _finalize_plot_execution(self, numero_plot, fichiers, choix):
         """
         Common operations after a successful plot.
@@ -2272,10 +2275,11 @@ class NeutronApp:
             choix
         )
 
+
         if self.current_fig is not None:
-                if numero_plot not in ["NAA_2", "NAA_3"]:
-                    self.update_live_zoom()
-                    self._reconfigure_y_sliders()
+            if self.plot_uses_display_limits():
+                self.update_live_zoom()
+                self._reconfigure_y_sliders()
 
         try:
             current_stats = self.txt_stats.get("1.0", tk.END).strip()
@@ -2348,8 +2352,6 @@ class NeutronApp:
 
         numero_plot = self.current_plot_id
         choix = self.selected_plot_label.get()
-
-        self.hide_all_controls()
 
         import plot as pt
 
@@ -2451,7 +2453,7 @@ class NeutronApp:
             # ==========================================================
             # COMMON POST-PROCESSING
             # ==========================================================
-
+            self.apply_plot_configuration()
             self._finalize_plot_execution(
                 numero_plot,
                 fichiers,
@@ -2475,8 +2477,6 @@ class NeutronApp:
             return
 
         fichiers, base_kwargs = prepared
-
-        self.hide_all_controls()
 
         import plot as pt
 
@@ -2647,7 +2647,7 @@ class NeutronApp:
             # ==========================================================
             # COMMON POST PROCESSING
             # ==========================================================
-
+            self.apply_plot_configuration()
             self._finalize_plot_execution(
                 numero_plot,
                 fichiers,
@@ -2665,9 +2665,8 @@ class NeutronApp:
     def execute_flux_tof(self):
         """Plot the corrected neutron flux in the Time-of-Flight domain."""
 
-        self.current_plot = "flux_tof"
+        self.current_plot_id = "flux_tof"
         self.apply_plot_configuration()
-        self.hide_all_controls()
         self.show_flux_tof_controls()
         prepared = self._prepare_plot_execution()
 
@@ -2693,9 +2692,8 @@ class NeutronApp:
     def execute_flux_energy(self):
         """Plot the corrected neutron flux in the Energy domain."""
 
-        self.current_plot = "flux_energy"
+        self.current_plot_id = "flux_energy"
         self.apply_plot_configuration()
-        self.hide_all_controls()
         self.show_flux_E_controls()
         prepared = self._prepare_plot_execution()
 
