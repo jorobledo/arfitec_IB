@@ -23,9 +23,9 @@ cmap = plt.cm.coolwarm
 
 
 def _integrer_canvas(fig, frame):
-    """Gère l'affichage de la figure dans un conteneur Tkinter."""
+    """Manages figure display in a Tkinter container."""
     if frame is not None:
-        # Nettoyage des anciens widgets dans la frame pour éviter la superposition
+        # Clean up old widgets in the frame to avoid overlap
         for widget in frame.winfo_children():
             widget.destroy()
         
@@ -254,7 +254,7 @@ def plot_6(fichiers, datasets, frame=None):
     return fig
     
 def plot_7(fichiers, datasets, choice_sub=7.1, frame=None):
-        """Prend désormais choice_sub en paramètre pour éviter l'utilisation de input()"""
+        """Now takes choice_sub as parameter to avoid using input()"""
         print('Calculating please wait...')
         t_min = PARAMS['t_min']
         t_max = PARAMS['t_max']
@@ -446,8 +446,8 @@ def plot_9(fichiers, datasets, frame=None):
         integral = np.sum(data['flux_tof']) * dt
         flux_normalise_integral = data['flux_tof'] / integral
         
-        ax1.plot(data['ToF'] * 1e6, flux_brut, '.', markersize=4, label=f"{nom} - Brut")
-        ax2.plot(data['ToF'] * 1e6, data['flux_tof'], '.', markersize=4, label=f"{nom} - Corrigé")
+        ax1.plot(data['ToF'] * 1e6, flux_brut, '.', markersize=4, label=f"{nom} - Raw")
+        ax2.plot(data['ToF'] * 1e6, data['flux_tof'], '.', markersize=4, label=f"{nom} - Corrected")
         ax3.plot(data['ToF'] * 1e6, flux_normalise_integral, '.', markersize=4, label=f"{nom} - Area Norm")
         
     for ax, title, ylabel in zip([ax1, ax2, ax3], ['Raw Flux Comparison', 'Fully Corrected ToF Flux Comparison', 'Shape Comparison'], ['Raw Flux', 'Corrected Flux', 'Normalized Flux']):
@@ -477,7 +477,7 @@ def plot_10(fichiers, datasets, frame=None):
     x_data, y_data, y_err = np.array(puissances), np.array(integrales), np.array(unc)
     
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.errorbar(x_data, y_data, yerr=y_err, fmt='o', color='purple', ecolor=(0.5, 0, 1, 0.4), capsize=4, markersize=4, label='Données expérimentales')
+    ax.errorbar(x_data, y_data, yerr=y_err, fmt='o', color='purple', ecolor=(0.5, 0, 1, 0.4), capsize=4, markersize=4, label='Experimental data')
     
     if len(x_data) > 1:
         modele_lineaire = lambda P, a: a * P
@@ -485,22 +485,22 @@ def plot_10(fichiers, datasets, frame=None):
         pente_a = popt[0]
         
         x_trace = np.linspace(0, np.max(x_data), 100)
-        ax.plot(x_trace, modele_lineaire(x_trace, pente_a), '-', color='black', alpha=0.6, label=f'Fit linéaire : I = {pente_a:.3e} * P')
+        ax.plot(x_trace, modele_lineaire(x_trace, pente_a), '-', color='black', alpha=0.6, label=f'Linear fit: I = {pente_a:.3e} * P')
         ax.set_xlim(left=0)
         ax.set_ylim(bottom=0)
         
-    ax.set_xlabel('Puissance [kW]'); ax.set_ylabel('Intégrale du flux'); ax.grid(True, linestyle="--")
+    ax.set_xlabel('Power [kW]'); ax.set_ylabel('Flux integral'); ax.grid(True, linestyle="--")
     ax.legend()
     _integrer_canvas(fig, frame)
     return fig
 
 def plot_11(fichiers, datasets, fichier_ref="", frame=None):
-    """Calcule la section efficace pour un échantillon à partir du rapport ToF pur.
-    Le calcul de la transmission est réalisé sur les spectres temporels (ToF) corrigés non groupés.
-    Intègre des options pour masquer indépendamment M1 et M2, ainsi qu'un bouton d'accumulation.
+    """Calculates cross section for a sample from pure ToF ratio.
+    Transmission calculation is performed on corrected non-grouped temporal spectra (ToF).
+    Integrates options to independently hide M1 and M2, plus an accumulation button.
     """
     if len(fichiers) < 2:
-        print("Erreur : Vous devez avoir au moins un fichier de référence et un échantillon.")
+        print("Error: You must have at least one reference file and one sample.")
         return
     thickness    = PARAMS['thickness']
     atom_density = PARAMS['atom_density']
@@ -527,7 +527,7 @@ def plot_11(fichiers, datasets, fichier_ref="", frame=None):
     courbe_m1 = None      
     courbe_active = None  
     
-    # 2. Tracé du(s) fichier(s) de référence externe si configuré (délégué à physics.read_reference_file)
+    # 2. Plot external reference file(s) if configured (delegated to physics.read_reference_file)
     amps_from_refs = []
     if fichier_ref:
         # Normalize to iterable of paths
@@ -557,9 +557,9 @@ def plot_11(fichiers, datasets, fichier_ref="", frame=None):
                         pass
 
                 except Exception as e_ref:
-                    print(f"Impossible de lire le fichier de référence '{ref_path}': {e_ref}")
+                    print(f"Unable to read reference file '{ref_path}': {e_ref}")
         except Exception as e:
-            print(f"Erreur lors du traitement des fichiers de référence : {e}")
+            print(f"Error processing reference files: {e}")
 
     # If we collected amplitudes from one or more references, take their mean as initial amplitude
     if amps_from_refs:
@@ -646,7 +646,7 @@ def plot_11(fichiers, datasets, fichier_ref="", frame=None):
             
             courbe_m1 = ax.errorbar(E_direct[mask_E0], cross_sec_m1_raw[mask_E0] * amp_actuelle, 
                                     yerr=unc_m1[mask_E0] * amp_actuelle, fmt='.', color='red', 
-                                    markersize=3, alpha=0.3, elinewidth=0.5, capsize=1, label="Méthode 1 (Lissage M=30)")
+                                    markersize=3, alpha=0.3, elinewidth=0.5, capsize=1, label="Method 1 (Smoothing M=30)")
         
         if courbe_active is not None:
             courbe_active.remove()
@@ -661,7 +661,7 @@ def plot_11(fichiers, datasets, fichier_ref="", frame=None):
             courbe_active = ax.errorbar(E_g[mask_g], cross_sec_g[mask_g] * amp_actuelle, 
                                         yerr=unc_g[mask_g] * amp_actuelle, fmt='.-', 
                                         color=couleurs_cycle[color_index], markersize=5.5, linewidth=1,
-                                        elinewidth=0.7, capsize=1.5, label=f"Grouping Actuel (N={N_actuel}, Amp={amp_actuelle:.2f})")
+                                        elinewidth=0.7, capsize=1.5, label=f"Current Grouping (N={N_actuel}, Amp={amp_actuelle:.2f})")
         
         ax.relim()
         ax.autoscale_view(True, True, True)
@@ -717,7 +717,7 @@ def plot_11(fichiers, datasets, fichier_ref="", frame=None):
     return fig
 
 def plot_12(fichiers, datasets, fichier_ref="", frame=None):
-    """Prend les variables interactives directement en arguments."""
+    """Takes interactive variables directly as arguments."""
     thickness = PARAMS['thickness']
     atom_density = PARAMS['atom_density']
     E_min = PARAMS['E_min']
@@ -736,5 +736,85 @@ def plot_12(fichiers, datasets, fichier_ref="", frame=None):
     ax.set_xscale('log'); ax.set_xlabel('Energy (eV)'); ax.set_ylabel('Cross section (barns)')
     ax.legend(); ax.grid(True, which="both", linestyle="--")
     
+    _integrer_canvas(fig, frame)
+    return fig
+
+
+
+def plot_flux_tof(fichiers, datasets, frame=None):
+    """
+    Plot corrected neutron flux in the Time-of-Flight domain with uncertainties.
+    Multiple datasets can be superimposed.
+    """
+    if frame is not None:
+        for widget in frame.winfo_children():
+            widget.destroy()
+
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+
+    for nom in fichiers:
+        data = datasets[nom]
+
+        # Using errorbar to display the vertical uncertainty vector (unc_tof)
+        ax.errorbar(
+            data["ToF"] * 1e6,
+            data["flux_tof"],
+            yerr=data["unc_tof"],
+            fmt='-',
+            linewidth=1.5,
+            elinewidth=0.8,
+            capsize=1.5,
+            alpha=0.8,
+            ecolor=None,  # Automatically matches the line color
+            label=nom
+        )
+
+    ax.set_xlabel("Time of Flight (µs)")
+    ax.set_ylabel("Corrected Flux")
+    ax.set_title("Corrected Neutron Flux (ToF)")
+    ax.grid(True, linestyle="--", alpha=0.5)
+    ax.legend()
+
+    plt.tight_layout()
+    _integrer_canvas(fig, frame)
+    return fig
+
+
+def plot_flux_energy(fichiers, datasets, frame=None):
+    """
+    Plot corrected neutron flux in the Energy domain with uncertainties.
+    Uses flux_E2 = Flux(E) × E.
+    Multiple datasets can be superimposed.
+    """
+    if frame is not None:
+        for widget in frame.winfo_children():
+            widget.destroy()
+
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+
+    for nom in fichiers:
+        data = datasets[nom]
+
+        # Using errorbar to display the vertical uncertainty vector on the energy scale
+        ax.errorbar(
+            data["E"],
+            data["flux_E2"],
+            yerr=data["unc_E2"],  # Propagated uncertainty vector tracking
+            fmt='-',
+            linewidth=1.5,
+            elinewidth=0.8,
+            capsize=1.5,
+            alpha=0.8,
+            label=nom
+        )
+
+    ax.set_xscale("log")
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Flux(E) × E")
+    ax.set_title("Corrected Energy Flux")
+    ax.grid(True, which="both", linestyle="--", alpha=0.5)
+    ax.legend()
+
+    plt.tight_layout()
     _integrer_canvas(fig, frame)
     return fig

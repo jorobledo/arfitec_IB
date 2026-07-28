@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 
 def plot_counts(file_path):
     """
-    Trace le taux de comptage expérimental en fonction de l'énergie.
-    file_path: chemin du fichier .dat (col 0: énergie, col 1: taux de comptage)
+    Plots the experimental count rate as a function of energy.
+    file_path: path to .dat file (col 0: energy, col 1: count rate)
     """
-    # Chargement des données des deux colonnes
+    # Load data from the two columns
     data = np.loadtxt(file_path)
     energy = data[:, 0]
     cts_rate = data[:, 1]
@@ -15,7 +15,7 @@ def plot_counts(file_path):
     
     ax.plot(energy, cts_rate, '-', color='tab:red', linewidth=1.5, label='Experimental Data')
     
-    # Éléments du GUI en anglais
+    # GUI elements in English
     ax.set_xlabel('Energy (eV)')
     ax.set_ylabel('Count Rate (cps)')
     ax.set_title('Experimental Count Rate vs Energy')
