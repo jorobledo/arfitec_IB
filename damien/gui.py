@@ -60,6 +60,8 @@ class NeutronApp:
         self.root = root
         self.root.title("Neutron Spectrum Analysis (Chopper Experiment)")
         self.root.state("zoomed")
+
+        self.comparison_points = [] # used later for shielding experiment
         
         # --- MENU BAR CREATION ---
         barre_menu = Menu(self.root)
@@ -942,6 +944,26 @@ class NeutronApp:
         self.plot8_options.pack_forget()
         self.flux_tof_frame.pack_forget()
         self.flux_E_frame.pack_forget()
+
+        # ----- Shielding options -----
+
+        self.comparison_frame = tk.Frame(
+            self.display_frame,
+            bg=BG_DARK,
+        )
+        
+        self.comparison_button = tk.Button(
+            self.comparison_frame,
+            text="Add comparison points",
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            command=self.show_transmission_comparison
+        )
+
+        self.comparison_button.pack(
+            padx=10,
+            pady=5
+        )
             
 
         # LEFT PANEL: COMPACT AND DISTINCT ACTIONS
@@ -1438,6 +1460,7 @@ class NeutronApp:
             "default_logy": False,
             "display_limits": False,
             "plot8_options": False,
+            "show_comparison":True,
         },
 
         "shielding_2": {
@@ -1452,6 +1475,7 @@ class NeutronApp:
             "default_logy": False,
             "display_limits": False,
             "plot8_options": False,
+            "show_comparison":True,
         },
 
         "shielding_4": {
@@ -1975,6 +1999,19 @@ class NeutronApp:
         else:
             self.limits_frame.pack_forget()
 
+        # --------------------------------------------------
+        # Comparison points
+        # --------------------------------------------------
+
+        if cfg.get("show_comparison", False):
+            self.comparison_frame.pack(
+                padx=12,
+                pady=(2, 8),
+                fill="x"
+            )
+        else:
+            self.comparison_frame.pack_forget()
+
 
     def show_analysis_menu(self):
 
@@ -2407,6 +2444,76 @@ class NeutronApp:
             padx=10,
             pady=10
         )
+    def show_transmission_comparison(self):
+        
+        folder = os.path.join(
+            os.path.dirname(__file__),
+            "shielding"
+        )
+
+        fichiers = filedialog.askopenfilenames(
+            title="Select comparison files",
+            initialdir=folder,
+            filetypes=[
+                ("Data files", "*.dat"),
+                ("All files", "*.*")
+            ]
+        )
+
+        if not fichiers:
+            return
+
+        self.comparison_points.clear()
+
+        for fichier in fichiers:
+
+            basename = os.path.basename(fichier)
+
+            name = os.path.splitext(basename)[0]
+
+            try:
+
+                # concentration
+                if "%" in name:
+
+                    value = float(name.split("%")[0])
+                    unit = "%"
+
+                # thickness
+                elif "mm" in name:
+
+                    value = float(name.split("mm")[0])
+                    unit = "mm"
+
+                else:
+                    raise ValueError
+
+            except ValueError:
+
+                messagebox.showwarning(
+                    "Filename format",
+                    f"Cannot extract concentration/thickness from:\n{basename}"
+                )
+                continue
+
+            # élément = dernière partie après "_"
+            if "_" in name:
+                element = name.split("_")[-1]
+            else:
+                element = name
+
+            filename = os.path.basename(fichier)
+
+            if filename not in self.datasets:
+                self.datasets[filename] = process_neutron_data(fichier)
+
+            self.comparison_points.append({
+                "file": fichier,
+                "value": value,
+                "unit": unit,
+                "element": element
+            })
+            self.execute_analysis_plot()
 
     def hide_all_controls(self):
         """
@@ -2520,6 +2627,7 @@ class NeutronApp:
                     self.current_fig = pt_shldg.plot_transmission_concentration(
                         fichiers,
                         self.datasets,
+                        comparison_points=self.comparison_points,
                         **base_kwargs
                     )
 
@@ -2532,10 +2640,10 @@ class NeutronApp:
                     )
 
                 elif numero_plot == "shielding_3":
-                    
                     self.current_fig = pt_shldg.plot_transmission_thickness(
                         fichiers,
                         self.datasets,
+                        comparison_points=self.comparison_points,
                         **base_kwargs
                     )
 
