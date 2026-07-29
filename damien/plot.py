@@ -715,15 +715,20 @@ def plot_12(fichiers, datasets, fichier_ref="", frame=None):
 
 
 
-def plot_flux_tof(fichiers, datasets, frame=None):
+def plot_flux_tof(fichiers, datasets, frame=None, **kwargs):
     """
-    Plot corrected neutron flux in the Time-of-Flight domain with uncertainties.
-    Multiple datasets can be superimposed.
+    Plot neutron flux in the Time-of-Flight domain.
+
+    Display options (passed through kwargs):
+        - correction_mode : raw / deadtime / background / corrected
+        - grouping_method : no_grouping / method1 / method2
     """
 
-    t_min = PARAMS['t_min']
-    t_max = PARAMS['t_max']
-        
+    correction_mode = kwargs.get("correction_mode", "corrected")
+    grouping_method = kwargs.get("grouping_method", "method1")
+
+    t_min = PARAMS["t_min"]
+    t_max = PARAMS["t_max"]
 
     if frame is not None:
         for widget in frame.winfo_children():
@@ -732,19 +737,38 @@ def plot_flux_tof(fichiers, datasets, frame=None):
     fig, ax = plt.subplots(figsize=(11, 5.5))
 
     for nom in fichiers:
+
         data = datasets[nom]
-        mask = ((data['ToF'] >= t_min)& (data['ToF'] <= t_max))
 
-        x = data["ToF"][mask] * 1e6  # Convert ToF to microseconds for plotting
-        y = data["flux_tof"][mask]
-        err = data["unc_tof"][mask]
+        # ==========================================================
+        # Select the requested dataset
+        # ==========================================================
 
-        # Using errorbar to display the vertical uncertainty vector (unc_tof)
+        flux_data = data["tof_flux"][correction_mode][grouping_method]
+
+        tof = flux_data["ToF"]
+        flux = flux_data["flux"]
+        unc = flux_data["unc"]
+
+        # ==========================================================
+        # Apply display limits
+        # ==========================================================
+
+        mask = (tof >= t_min) & (tof <= t_max)
+
+        x = tof[mask] * 1e6          # µs
+        y = flux[mask]
+        err = unc[mask]
+
+        # ==========================================================
+        # Plot
+        # ==========================================================
+
         lines, caps, bars = ax.errorbar(
             x,
             y,
             yerr=err,
-            fmt='o-',
+            fmt="o-",
             linewidth=1.5,
             elinewidth=0.8,
             capsize=1.5,
@@ -754,16 +778,21 @@ def plot_flux_tof(fichiers, datasets, frame=None):
 
         for bar in bars:
             bar.set_alpha(0.4)
-    
+
+    # ==============================================================
+    # Figure formatting
+    # ==============================================================
 
     ax.set_xlabel("Time of Flight (µs)")
-    ax.set_ylabel("Corrected Flux")
-    ax.set_title("Corrected Neutron Flux (ToF)")
+    ax.set_ylabel("Neutron Flux")
+    ax.set_title("Neutron Flux (Time of Flight)")
     ax.grid(True, linestyle="--", alpha=0.5)
     ax.legend()
 
     plt.tight_layout()
+    
     _integrer_canvas(fig, frame)
+
     return fig
 
 
