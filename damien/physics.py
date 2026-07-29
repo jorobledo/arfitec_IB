@@ -5,6 +5,31 @@ import scipy.constants as cst
 import os
 from scipy.optimize import curve_fit
 from config import PARAMS
+from pathlib import Path
+import pickle
+
+
+CACHE_DIR = Path("cache")
+CACHE_DIR.mkdir(exist_ok=True)
+CACHE_VERSION = 1
+
+def get_cache_path(filename):
+    return CACHE_DIR / (Path(filename).stem + ".pkl")
+
+def save_cache(cache_file, data):
+    with open(cache_file, "wb") as f:
+        pickle.dump(data, f)
+
+def load_cache(cache_file):
+    with open(cache_file, "rb") as f:
+        return pickle.load(f)
+
+def cache_is_valid(filename, cache_file):
+
+    if not cache_file.exists():
+        return False
+
+    return os.path.getmtime(cache_file) >= os.path.getmtime(filename)
     
 """ Constants """
 
@@ -42,7 +67,7 @@ def apply_dead_time_correction(counts, dead_time, nbr_frames, channel_width):
     return counts / (1 - counts * dead_time / (nbr_frames * channel_width))
 
 
-def remove_background(counts, n_pts=100):
+def remove_background(counts, n_pts=500):
     """Calculates and subtracts average background measured on last channels."""
     bg = np.mean(counts[-n_pts:])
     return counts - bg
@@ -636,77 +661,401 @@ def integrate_thermal_epithermal_flux(t, flux_ToF):
 
 
 def process_neutron_data(fichier):
-    """Execute the entire processing pipeline for a given file."""
-    # 1. File loading and metadata
-    meta = load_metadata(fichier)
-    channels, counts = np.loadtxt(fichier, skiprows=15, unpack=True)
 
-    unc_counts = np.sqrt(counts)  # Poisson uncertainty
+    """
+    Execute the entire processing pipeline for a given file.
     
-    # 2. Corrections primaires (Temps mort, bruit de fond)
-    counts_dt = apply_dead_time_correction(counts, meta['dead_time'], meta['nbr_frames'], meta['channel_width'])
-    counts_bg_corr = remove_background(counts_dt)
+    """
+
+    cache_file = get_cache_path(fichier)
+
+    # -------------------------------------------------------
+    # Try to load cache
+    # -------------------------------------------------------
+    if cache_is_valid(fichier, cache_file):
+
+        data = load_cache(cache_file)
+
+        if data.get("cache_version") == CACHE_VERSION:
+            return data
+        
     
+    # ==========================================================
+    # 1. Load data
+    # ==========================================================
+
+    meta = load_metadata(fichier)
+
+    channels, counts = np.loadtxt(
+        fichier,
+        skiprows=15,
+        unpack=True
+    )
+
+    unc_counts = np.sqrt(counts)
+
+
+    # ==========================================================
+    # 2. Dead-time correction
+    # ==========================================================
+
+    counts_dt = apply_dead_time_correction(
+        counts,
+        meta["dead_time"],
+        meta["nbr_frames"],
+        meta["channel_width"]
+    )
+
+
+    # ==========================================================
+    # 3. Background correction
+    # ==========================================================
+
+    counts_bg = remove_background(counts_dt)
+
     therm_counts = remove_background(counts)
-    
-    # Normalisation par pulses et incertitudes
-    flux_normalise = counts_bg_corr / meta['nbr_frames']
-    therm_norm_flux = therm_counts / meta['nbr_frames']
-    unc_normalisee = np.sqrt(counts) / meta['nbr_frames']
-    unc_normalisee_corr = apply_dead_time_correction(unc_normalisee, meta['dead_time'], meta['nbr_frames'], meta['channel_width'])
-    
-    # 3. Calculate time kinetics (ToF)
-    ToF = (meta['channel_width'] * channels * 1e-6) - ED
-    
-    # 4. Smoothing and efficiency correction (Time Domain)
-    flux_lisse = apply_grouping_methode1(flux_normalise)
-    mean_therm_norm_flux = apply_grouping_methode1(therm_norm_flux)
-    eff_ToF = compute_efficiency_tof(ToF, meta['path_length'])
-    flux_tof_ungrouped = flux_normalise / eff_ToF
-    flux_final_tof = flux_lisse / eff_ToF
-    unc_flux_reelle = unc_normalisee_corr / eff_ToF
-    
-    # 5. Grouping method 2 (Packets of 10)
-    flux_grouped = apply_grouping_methode2(flux_normalise)
-    channels_grouped = apply_grouping_methode2(channels)
-    ToF_grouped = apply_grouping_methode2(ToF)
-    unc_grouped = apply_grouping_methode2(unc_normalisee_corr) / np.sqrt(10)
-    
-    flux_tof_grouped = apply_grouping_methode2(flux_final_tof)
-    
-    # 6. Change of variable to Energy Domain
-    E, flux_E, flux_E2, unc_E, unc_E2= convert_to_energy_scale(flux_final_tof, ToF, meta['path_length'], unc_normalisee_corr)
+
+
+    # ==========================================================
+    # 4. Pulse normalization
+    # ==========================================================
+
+    flux_raw = counts
+
+    flux_deadtime = counts_dt / meta["nbr_frames"]
+
+    flux_background = counts_bg / meta["nbr_frames"]
+
+    flux_thermal = therm_counts / meta["nbr_frames"]
+
+    unc_raw = unc_counts
+    unc_raw_norm = unc_counts / meta["nbr_frames"]
+
+
+    unc_deadtime = apply_dead_time_correction(
+        unc_raw_norm,
+        meta["dead_time"],
+        meta["nbr_frames"],
+        meta["channel_width"]
+    )
+
+
+    # Background subtraction does not modify statistical uncertainty
+    unc_background = unc_deadtime.copy()
+
+
+    # ==========================================================
+    # 5. Time of flight axis
+    # ==========================================================
+
+    ToF = (
+        meta["channel_width"] * channels * 1e-6
+    ) - ED
+
+
+    # ==========================================================
+    # 6. Detector efficiency correction
+    # ==========================================================
+
+    eff_ToF = compute_efficiency_tof(
+        ToF,
+        meta["path_length"]
+    )
+
+    flux_efficiency = flux_background / eff_ToF
+
+    unc_efficiency = unc_background / eff_ToF
+
+
+    # ==========================================================
+    # 7. Grouping method 1
+    # ==========================================================
+
+    flux_raw_m1 = apply_grouping_methode1(flux_raw)
+
+    flux_deadtime_m1 = apply_grouping_methode1(flux_deadtime)
+
+    flux_background_m1 = apply_grouping_methode1(flux_background)
+
+    flux_efficiency_m1 = apply_grouping_methode1(flux_efficiency)
+
+    flux_thermal_m1 = apply_grouping_methode1(flux_thermal)
+
+
+    unc_efficiency_m1 = apply_grouping_methode1(
+        unc_efficiency
+    )
+
+
+    # ==========================================================
+    # 8. Grouping method 2
+    # ==========================================================
+
+    ToF_m2 = apply_grouping_methode2(ToF)
+
+    channels_m2 = apply_grouping_methode2(channels)
+
+
+    flux_raw_m2 = apply_grouping_methode2(flux_raw)
+
+    flux_deadtime_m2 = apply_grouping_methode2(flux_deadtime)
+
+    flux_background_m2 = apply_grouping_methode2(flux_background)
+
+    flux_efficiency_m2 = apply_grouping_methode2(flux_efficiency)
+
+    unc_raw_m2 = apply_grouping_methode2(unc_raw)
+    unc_deadtime_m2 = apply_grouping_methode2(unc_deadtime)
+    unc_efficiency_m2 = (
+        apply_grouping_methode2(unc_efficiency)
+        / np.sqrt(10)
+    )
+
+
+    # ==========================================================
+    # 9. Energy conversion
+    # ==========================================================
+
+    E, flux_E, flux_E2, unc_E, unc_E2 = convert_to_energy_scale(
+        flux_efficiency_m1,
+        ToF,
+        meta["path_length"],
+        unc_efficiency_m1
+    )
     eff_E = compute_efficiency_energy(E)
-    
-    # Clean output dictionary
-    return {
-        'meta': meta,
-        'counts': counts,
-        'unc_counts': unc_counts,
-        'channels': channels,
-        'channels_grouped': channels_grouped,
-        'ToF': ToF,
-        'ToF_grouped': ToF_grouped,
-        'flux_normalise': flux_normalise,
-        'flux_lisse': flux_lisse,
-        'mean_therm_norm_flux': mean_therm_norm_flux,
-        'flux_grouped': flux_grouped,
-        'flux_tof_ungrouped':flux_tof_ungrouped,
-        'flux_tof': flux_final_tof,
-        'flux_tof_grouped': flux_tof_grouped,
-        'unc_tof_norm': unc_normalisee,
-        'unc_tof': unc_normalisee_corr,
-        'unc_tof_grouped': unc_grouped,
-        'unc_flux_reelle':unc_flux_reelle,
-        'E': E,
-        'eff_E': eff_E,
-        'eff_ToF': eff_ToF,
-        'flux_E': flux_E,
-        'flux_E2': flux_E2,
-        'unc_E': unc_E,
-        'unc_E2': unc_E2
+
+    # ==========================================================
+    # 10. Compatibility aliases
+    # ==========================================================
+
+    flux_corrected = flux_efficiency
+
+    flux_corrected_m1 = flux_efficiency_m1
+
+    flux_corrected_m2 = flux_efficiency_m2
+
+
+    unc_corrected = unc_efficiency
+
+
+    tof_flux = {
+
+        "raw": {
+
+            "no_grouping": {
+                "ToF": ToF,
+                "flux": flux_raw,
+                "unc": unc_raw,
+            },
+
+            "method1": {
+                "ToF": ToF,
+                "flux": flux_raw_m1,
+                "unc": unc_raw,
+            },
+
+            "method2": {
+                "ToF": ToF_m2,
+                "flux": flux_raw_m2,
+                "unc": unc_raw_m2,
+            },
+        },
+
+
+        "deadtime": {
+
+            "no_grouping": {
+                "ToF": ToF,
+                "flux": flux_deadtime,
+                "unc": unc_deadtime,
+            },
+
+            "method1": {
+                "ToF": ToF,
+                "flux": flux_deadtime_m1,
+                "unc": unc_deadtime,
+            },
+
+            "method2": {
+                "ToF": ToF_m2,
+                "flux": flux_deadtime_m2,
+                "unc": unc_deadtime_m2,
+            },
+        },
+
+
+        "background": {
+
+            "no_grouping": {
+                "ToF": ToF,
+                "flux": flux_background,
+                "unc": unc_background,
+            },
+
+            "method1": {
+                "ToF": ToF,
+                "flux": flux_background_m1,
+                "unc": unc_deadtime,
+            },
+
+            "method2": {
+                "ToF": ToF_m2,
+                "flux": flux_background_m2,
+                "unc": unc_deadtime_m2,
+            },
+        },
+
+
+        # Alias pour le flux physique corrigé
+        "all": {
+
+            "no_grouping": {
+                "ToF": ToF,
+                "flux": flux_corrected,
+                "unc": unc_corrected,
+            },
+
+            "method1": {
+                "ToF": ToF,
+                "flux": flux_corrected_m1,
+                "unc": unc_efficiency_m1,
+            },
+
+            "method2": {
+                "ToF": ToF_m2,
+                "flux": flux_corrected_m2,
+                "unc": unc_efficiency_m2,
+            },
+        },
     }
 
+    result = {
+
+        "cache_version": CACHE_VERSION,
+
+        # ======================================================
+        # Metadata
+        # ======================================================
+
+        "meta": meta,
+
+
+        # ======================================================
+        # Raw detector data
+        # ======================================================
+
+        "counts": counts,
+
+        "unc_counts": unc_counts,
+
+        "channels": channels,
+
+
+        # ======================================================
+        # ToF axes
+        # ======================================================
+
+        "ToF": ToF,
+
+        "ToF_grouped": ToF_m2,
+
+        "channels_grouped": channels_m2,
+
+        "channels_m2": channels_m2,
+
+
+        # ======================================================
+        # Flux intermediate
+        # ======================================================
+
+        "flux_raw": flux_raw,
+
+        "flux_deadtime": flux_deadtime,
+
+        "flux_background": flux_background,
+
+        "flux_corrected": flux_corrected,
+
+
+        # Old compatibility names
+
+        "flux_normalise": flux_background,
+
+        "flux_lisse": flux_background_m1,
+
+        "mean_therm_norm_flux": flux_thermal_m1,
+
+        "flux_grouped": flux_background_m2,
+
+
+        # ======================================================
+        # ToF flux
+        # ======================================================
+
+        "flux_tof_ungrouped": flux_corrected,
+
+        "flux_tof": flux_corrected_m1,
+
+        "flux_tof_grouped": flux_corrected_m2,
+
+
+        # ======================================================
+        # Uncertainties
+        # ======================================================
+
+        "unc_raw": unc_raw,
+
+        "unc_deadtime": unc_deadtime,
+
+        "unc_background": unc_background,
+
+        "unc_corrected": unc_corrected,
+
+
+        # Compatibility
+
+        "unc_tof_norm": unc_deadtime,
+
+        "unc_tof": unc_deadtime,
+
+        "unc_tof_grouped": unc_efficiency_m2,
+
+        "unc_flux_reelle": unc_corrected,
+
+
+        # ======================================================
+        # Detector efficiency
+        # ======================================================
+
+        "eff_ToF": eff_ToF,
+        "eff_E":eff_E,
+
+
+        # ======================================================
+        # Energy domain
+        # ======================================================
+
+        "E": E,
+
+        "flux_E": flux_E,
+
+        "flux_E2": flux_E2,
+
+        "unc_E": unc_E,
+
+        "unc_E2": unc_E2,
+
+
+        # ======================================================
+        # Structured ToF database
+        # ======================================================
+
+        "tof_flux": tof_flux,
+    }
+
+    save_cache(cache_file, result)
+
+    return result
 
 Temp_K = np.arange(260,400,5)
 N_temp = len(Temp_K)
