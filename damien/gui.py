@@ -242,20 +242,47 @@ class NeutronApp:
         )
         self.title_label.pack(pady=(25, 15))
 
+        # ==================================================
         # LEFT PANEL: LOAD BUTTONS
         # ==================================================
-        self.load_button = tk.Button(
+
+        self.load_frame = tk.Frame(
             self.control_frame,
-            text="Load Data Files",
+            bg=BG_DARK
+        )
+        self.load_frame.pack(pady=5, fill="x")
+
+        self.load_files = tk.Button(
+            self.load_frame,
+            text="Load Files",
             command=self.load_files,
             font=FONT_MAIN,
             bg="#34495e",
             fg=TEXT_LIGHT,
             activebackground="#5d6d7e",
             activeforeground=TEXT_LIGHT,
-            bd=0, height=1, width=22, cursor="hand2"
+            bd=0,
+            height=1,
+            width=16,
+            cursor="hand2"
         )
-        self.load_button.pack(pady=5)
+        self.load_files.pack(side="left", padx=(18, 1))
+
+        self.load_folder = tk.Button(
+            self.load_frame,
+            text="Load Folder",
+            command=self.load_folder,
+            font=FONT_MAIN,
+            bg="#34495e",
+            fg=TEXT_LIGHT,
+            activebackground="#5d6d7e",
+            activeforeground=TEXT_LIGHT,
+            bd=0,
+            height=1,
+            width=16,
+            cursor="hand2"
+        )
+        self.load_folder.pack(side="right", padx=(1, 18))
 
         self.clear_cache_button = tk.Button(
             self.control_frame,
@@ -266,7 +293,7 @@ class NeutronApp:
             fg=TEXT_LIGHT,
             activebackground="#95a5a6",
             activeforeground=TEXT_LIGHT,
-            bd=0, height=1, width=22, cursor="hand2"
+            bd=0, height=1, width=34, cursor="hand2"
         )
         self.clear_cache_button.pack(pady=(2, 5))
 
@@ -1571,6 +1598,71 @@ class NeutronApp:
             self.root.config(cursor="")
             self.status_label.config(text="Ready")
             progress_win.destroy()
+
+
+    def load_folder(self):
+        """
+        Load all .dat files from a selected folder.
+        """
+
+        if self.is_loading:
+            return
+
+        folder = filedialog.askdirectory(
+            title="Select folder containing neutron data",
+            initialdir=os.path.dirname(__file__)
+        )
+
+        if not folder:
+            return
+
+        fichiers = sorted([
+            os.path.join(folder, f)
+            for f in os.listdir(folder)
+            if f.lower().endswith(".dat")
+        ])
+
+        if not fichiers:
+            messagebox.showwarning(
+                "No files found",
+                "No .dat files were found in the selected folder."
+            )
+            return
+
+        try:
+            self.is_loading = True
+            self.root.config(cursor="watch")
+
+            for fichier in fichiers:
+
+                filename = os.path.basename(fichier)
+
+                # Skip already loaded files
+                if filename in self.datasets:
+                    continue
+
+                try:
+                    self.datasets[filename] = process_neutron_data(fichier)
+
+                    self.file_listbox.insert(
+                        tk.END,
+                        filename
+                    )
+
+                except Exception as e:
+                    messagebox.showerror(
+                        "Parsing Error",
+                        f"Could not parse file:\n{filename}\n\n{e}"
+                    )
+
+            self.status_label.config(
+                text=f"{len(fichiers)} files loaded"
+            )
+
+        finally:
+            self.is_loading = False
+            self.root.config(cursor="")
+
 
     def clear_cache(self):
         if messagebox.askyesno("Clear Cache", "Are you sure you want to unload all files and clear cache?"):
