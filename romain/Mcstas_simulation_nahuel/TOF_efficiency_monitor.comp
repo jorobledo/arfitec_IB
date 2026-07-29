@@ -40,6 +40,8 @@
 * TOF_p2: []            Array of second moments
 *
 * %E
+* COMMENT
+* We added efficiency to the detection of neutrons as a function of the neutron Energy based on eq. in paper. 
 *******************************************************************************/
 
 DEFINE COMPONENT TOF_efficiency_monitor
