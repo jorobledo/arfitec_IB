@@ -95,7 +95,7 @@ COMPONENT polyethylene_1 = Union_make_material(
 AT (0,0,0) RELATIVE arm1
 
 COMPONENT cadmium_1 = Union_make_material(
- process_string = "diffusion_polyethylene_1",
+ process_string = "Cd_sg194_cod9012436.ncmat",
  init = "init_1",
  my_absorption = 10230)
 AT (0,0,0) RELATIVE arm1
