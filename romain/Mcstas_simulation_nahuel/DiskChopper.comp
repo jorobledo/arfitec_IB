@@ -60,6 +60,8 @@
 * verbose: [1]    Set to 1 to display Disk chopper configuration
 *
 * %E
+* COMMENT
+* We allow the Chopper to be made of cadmium, and transmit according to the absorption XS. No scatter process.
 *******************************************************************************/
 
 DEFINE COMPONENT DiskChopper
