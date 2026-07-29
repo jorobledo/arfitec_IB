@@ -49,6 +49,8 @@
 * %L
 *
 * %E
+* COMMENT: 
+* We needed to modify the union_master component to include cadmium absorption as a process in McStas Union by selecting my_absorption=10230
 ******************************************************************************/
 
 DEFINE COMPONENT Union_master
