@@ -7,6 +7,7 @@ from tkinter import messagebox
 from tkinter import Menu
 from pathlib import Path
 import re
+import pickle
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -280,23 +281,59 @@ class NeutronApp:
         )
         self.file_label.pack(pady=(5, 2))
 
-        self.file_listbox = tk.Listbox(
+        # ----------------------------------------------------------
+        # Frame contenant la liste + scrollbar
+        # ----------------------------------------------------------
+
+        self.file_list_frame = tk.Frame(
             self.control_frame,
+            bg=BG_DARK
+        )
+        self.file_list_frame.pack(padx=15, pady=5)
+
+        self.file_scrollbar = tk.Scrollbar(
+            self.file_list_frame,
+            orient="vertical"
+        )
+        self.file_scrollbar.pack(side="right", fill="y")
+
+        self.file_listbox = tk.Listbox(
+            self.file_list_frame,
             width=32,
             height=8,
             selectmode=tk.EXTENDED,
             exportselection=False,
             bg="#34495e",
             fg=TEXT_LIGHT,
-            selectbackground="#1abc9c", # Emerald green for selection
+            selectbackground="#1abc9c",
             selectforeground=TEXT_LIGHT,
             font=("Consolas", 9),
-            bd=0, highlightthickness=1, highlightbackground="#455a64"
+            bd=0,
+            highlightthickness=1,
+            highlightbackground="#455a64",
+            yscrollcommand=self.file_scrollbar.set
         )
-        self.file_listbox.pack(padx=15, pady=5)
-        
+        self.file_listbox.bind(
+            "<Enter>",
+            lambda e: self.file_listbox.bind_all(
+                "<MouseWheel>",
+                self._on_file_mousewheel
+            )
+        )
+
+        self.file_listbox.bind(
+            "<Leave>",
+            lambda e: self.file_listbox.bind_all(
+                "<MouseWheel>",
+                self._control_mousewheel
+            )
+        )
+        self.file_listbox.pack(side="left")
+
+        self.file_scrollbar.config(command=self.file_listbox.yview)
+
         self.ordre_selection = []
-        self.file_listbox.bind('<<ListboxSelect>>', self.maj_ordre_selection)
+        self.file_listbox.bind("<<ListboxSelect>>", self.maj_ordre_selection)
 
         # ==================================================
         # LEFT PANEL : QUICK FLUX PLOTS
@@ -521,6 +558,23 @@ class NeutronApp:
                 command=lambda l=label, i=p_id: self._set_current_analysis(l, i)
             )
 
+        # 3rd submenu: Shielding Experiment
+        self.shielding_submenu = Menu(self.analysis_menu, tearoff=0)
+        self.analysis_menu.add_cascade(label="Shielding", menu=self.shielding_submenu)
+        
+        # Example of shielding options (to adapt based on plot_shielding.py functions)
+        shielding_options = [
+            ("Thermal Transmission (Concentration)", "shielding_1"),
+            ("Thermal Transmission ToF (Concentration)", "shielding_2"),
+            ("Total Transmission (Thickness)", "shielding_3"),
+            ("Total Transmission ToF(Thickness)", "shielding_4"),
+        ]
+        for label, p_id in shielding_options:
+            self.shielding_submenu.add_command(
+                label=label, 
+                command=lambda l=label, i=p_id: self._set_current_analysis(l, i)
+            )
+
         # ==================================================
         # Fit menu
         # ==================================================
@@ -654,7 +708,7 @@ class NeutronApp:
             processing_frame,
             text="Background correction",
             variable=self.show_correction_var,
-            value="bg",
+            value="background",
             bg=BG_DARK,
             fg=TEXT_LIGHT,
             selectcolor=BG_DARK,
@@ -711,7 +765,7 @@ class NeutronApp:
             group_frame,
             text="Ungrouped",
             variable=self.grouping_method_var,
-            value="none",
+            value="no_grouping",
             bg=BG_DARK,
             fg=TEXT_LIGHT,
             selectcolor=BG_DARK,
@@ -1242,6 +1296,66 @@ class NeutronApp:
         # Fits
         # --------------------------------------------------
 
+        "1": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "2": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "3": {
+            "default_logx": True,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "4": {
+            "default_logx": True,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "5": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "9": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "10": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "11": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        # --------------------------------------------------
+        # Fits
+        # --------------------------------------------------
+
         "6": {
             "default_logx": False,
             "default_logy": False,
@@ -1288,6 +1402,38 @@ class NeutronApp:
             "plot8_options": False,
         },
 
+        # --------------------------------------------------
+        # shielding
+        # --------------------------------------------------
+
+        "shielding_1": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": False,
+            "plot8_options": False,
+        },
+
+        "shielding_2": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "shielding_3": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": False,
+            "plot8_options": False,
+        },
+
+        "shielding_4": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
     }
 
 
@@ -1316,7 +1462,6 @@ class NeutronApp:
         fichiers = filedialog.askopenfilenames(
             title="Select neutron data files",
             filetypes=[("Data files", "*.dat"), ("All files", "*.*")],
-            initialdir="data"
         )
         if not fichiers:
             return
@@ -1463,144 +1608,6 @@ class NeutronApp:
             return path if path else ""
         
 
-    # def execute_plot(self):
-    #     numero_plot = self.selected_plot_id
-    #     choix = self.selected_plot_label.get()
-        
-    #     if not self.datasets:
-    #         messagebox.showwarning("Warning", "Please load data files first.")
-    #         return
-        
-    #     if not self.ordre_selection:
-    #         messagebox.showwarning("Selection Error", "Please select at least one file in the list to plot.")   
-    #         return
-
-    #     fichiers = [self.file_listbox.get(i) for i in self.ordre_selection]
-
-    #     try:
-    #         self.clear_plot()
-            
-    #         # Import du module complet pour utiliser getattr dynamiquement
-    #         import plot as pt
-    #         base_kwargs = {"frame": self.plot_frame}
-
-    #         # --- ROUTING OF NAA PHENOMENA ---
-    #         if numero_plot.startswith("NAA_"):
-    #             import plot_NAA as pt_naa
-    #             if numero_plot == "NAA_1":
-    #                 self.current_fig = pt_naa.plot_gamma_spectrum(fichiers, self.datasets, **base_kwargs)
-    #             elif numero_plot == "NAA_2":
-    #                 self.current_fig = pt_naa.plot_decay_curve(fichiers, self.datasets, **base_kwargs)
-    #             elif numero_plot == "NAA_3":
-    #                 self.current_fig = pt_naa.plot_concentration(fichiers, self.datasets, **base_kwargs)
-
-    #         # --- FAMILY 1: Standard Graphs (including Plot 6) ---
-    #         elif numero_plot in ["1", "2", "3", "4", "5", "6", "9", "10"]:
-    #             func = getattr(pt, f"plot_{numero_plot}")
-    #             self.current_fig = func(fichiers, self.datasets, **base_kwargs)
-                
-    #             # Specific extraction for Plot 6 (Grid Search Maxwell Fit)
-    #             if numero_plot == "6":
-    #                 from physics import fit_maxwellian_grid_search
-                    
-    #                 summary = "==================================================\n"
-    #                 summary += " GRID SEARCH MAXWELLIAN FIT RESULTS\n"
-    #                 summary += "==================================================\n\n"
-                    
-    #                 # On recalcule rapidement les constantes pour les afficher dans l'IHM en anglais
-    #                 for nom in fichiers:
-    #                     data = self.datasets[nom]
-    #                     mask = (data['ToF'] >= PARAMS['t_min']) & (data['ToF'] <= PARAMS['t_max'])
-    #                     ToF_fit = data['ToF'][mask]
-    #                     flux_fit = data['flux_tof'][mask]
-                        
-    #                     T_best, erreur_min = fit_maxwellian_grid_search(
-    #                         ToF_fit, flux_fit, data['meta']['path_length']
-    #                     )
-                        
-    #                     summary += f"Dataset File : {nom}\n"
-    #                     summary += f"  -> Best Fit Temperature : {T_best:.2f} K\n"
-    #                     summary += f"  -> Minimum Residual Error : {erreur_min:.2e}\n"
-    #                     summary += f"  -> Active Time Range : {PARAMS['t_min']*1e6:.1f} to {PARAMS['t_max']*1e6:.1f} µs\n\n"
-                    
-    #                 self.update_stats_display(summary)
-                
-    #         # --- FAMILY 2: Advanced Maxwell Adjustments (7.1, 7.2) ---
-    #         elif numero_plot in ["7.1", "7.2"]:
-    #             self.current_fig, self.fit_results = pt.plot_7(
-    #                 fichiers, self.datasets, choice_sub=float(numero_plot), **base_kwargs
-    #             )
-                
-    #             # Reading and formatting of fit_results dictionary returned by plot_7
-    #             if self.fit_results:
-    #                 summary = "==================================================\n"
-    #                 summary += f" ADVANCED CURVE FIT RESULTS (Plot {numero_plot})\n"
-    #                 summary += "==================================================\n\n"
-    #                 summary += f"Primary Analyzed File : {fichiers[0]}\n\n"
-    #                 summary += "Extracted Physical Constants & Parameters :\n"
-                    
-    #                 # Key mapping for clean English display
-    #                 key_mapping = {
-    #                     "T_1": "Pure Maxwellian Temperature (T1)",
-    #                     "T_1_epi": "Maxwellian + Epithermal Temperature (T1_epi)",
-    #                     "r_squared_1": "R² Coefficient (Pure Maxwellian)",
-    #                     "r_squared_2": "R² Coefficient (Grouped Maxwellian)",
-    #                     "r_squared_1_epi": "R² Coefficient (Maxwellian + Epithermal)",
-    #                     "a1_tof_pure_1": "Amplitude Factor a1 (Model 1)",
-    #                     "a1_tof_pure_2": "Amplitude Factor a1 (Model 2)",
-    #                     "Ed_epi_1": "Epithermal Cutoff Energy (Ed)",
-    #                     "b_epi_1": "Epithermal Parameter b",
-    #                     "beta_epi_1": "Epithermal Parameter beta"
-    #                 }
-                    
-    #                 for key, val in self.fit_results.items():
-    #                     # Filter numpy prediction arrays to keep only scalars
-    #                     if isinstance(val, (int, float, np.float64, np.int64)):
-    #                         label_en = key_mapping.get(key, key)
-    #                         summary += f"  -> {label_en} : {val:.4f}\n"
-                            
-    #                 self.update_stats_display(summary)
-                
-    #         # --- FAMILY 3: Energy Spectra (8.1, 8.2) ---
-    #         elif numero_plot in ["8.1", "8.2"]:
-    #             if self.fit_results is None:
-    #                 messagebox.showwarning("Warning", "Please execute plot 7 first to compute fit results.")
-    #                 return
-                
-    #             self.current_fig = pt.plot_8(
-    #                 fichiers, self.datasets, self.fit_results, choice_sub=float(numero_plot), **base_kwargs
-    #             )
-                
-    #             # Optional: Display text reminder that statistics from this plot stem from fit 7
-    #             summary = "==================================================\n"
-    #             summary += f" ENERGY SPECTRUM MODELING (Plot {numero_plot})\n"
-    #             summary += "==================================================\n\n"
-    #             summary += f"Based on prior fit parameters from: {fichiers[0]}\n"
-    #             summary += "Plots display converted Time-of-Flight configurations into Energy scale (eV).\n"
-    #             summary += "Review 'Fit Results & Stats' tab parameters for exact scaling coefficients."
-    #             self.update_stats_display(summary)
-                
-    #         # Family 4: Cross Sections (11, 12) - Requires physical parameters and references
-    #         elif numero_plot in ["11", "12"]:
-    #             fichier_ref = self._ask_reference_files(multiple=(numero_plot == "11"))
-    #             func = getattr(pt, f"plot_{numero_plot}")
-    #             self.current_fig = func(
-    #                 fichiers, self.datasets,  
-    #                 fichier_ref=fichier_ref, 
-    #                 **base_kwargs
-    #             )
-
-    #         self._process_plot_statistics(numero_plot, fichiers, choix)
-    #         self.update_live_zoom()
-    #         self._reconfigure_y_sliders() # Call to external function
-            
-    #         # Capture current text stats content and save everything as a clean snapshot
-    #         current_stats = self.txt_stats.get("1.0", tk.END).strip()
-    #         self.add_to_history(choix, fichiers, figure_obj=self.current_fig, stats_text=current_stats)
-
-    #     except Exception as e:
-    #         messagebox.showerror("Plot Error", str(e))
-
     
     def _reconfigure_y_sliders(self):
         """Automatically adjusts Y slider bounds relative to graph data."""
@@ -1721,7 +1728,6 @@ class NeutronApp:
 
         # CRITICAL: We need a deep copy/unlinked snapshot of the figure to prevent overwrites
         # We achieve this by saving the figure state temporarily or archiving it
-        import pickle
         try:
             # Pickle serializes the figure state, creating a completely isolated clone
             fig_snapshot = pickle.loads(pickle.dumps(figure_obj))
@@ -1813,22 +1819,24 @@ class NeutronApp:
             # Safety if user makes input error (e.g. a letter or empty field)
             messagebox.showerror("Parsing Error", f"Please enter valid numerical values.\nDetails: {e}")
 
+    def _on_file_mousewheel(self, event):
+        self.file_listbox.yview_scroll(int(-event.delta / 60), "units")
+
     def setup_control_scroll(self):
         """
         Configure mouse wheel and trackpad scrolling for the control panel.
         """
 
-        def on_mousewheel(event):
-            self.control_canvas.yview_scroll(
-                int(-event.delta / 60),
-                "units"
-            )
+        self._control_mousewheel = lambda event: self.control_canvas.yview_scroll(
+            int(-event.delta / 60),
+            "units"
+        )
 
         self.control_canvas.bind(
             "<Enter>",
             lambda e: self.control_canvas.bind_all(
                 "<MouseWheel>",
-                on_mousewheel
+                self._control_mousewheel
             )
         )
 
@@ -2302,10 +2310,9 @@ class NeutronApp:
             "show_logy": self.show_logy_var.get(),
         }
 
-        if self.current_plot_id.startswith("2"):   # Flux ToF
-
+        if self.current_plot_id.startswith("flux_tof"):   # Flux ToF
             kwargs.update({
-                "show_correction": self.show_correction_var.get(),
+                "correction_mode": self.show_correction_var.get(),
                 "grouping_method": self.grouping_method_var.get(),
             })
 
@@ -2347,8 +2354,30 @@ class NeutronApp:
         self.flux_tof_frame.pack_forget()
         self.flux_E_frame.pack_forget()
 
+    
+    def refresh_current_plot(self):
+        """
+        Refresh the current plot using the current display options,
+        without reloading or recomputing the data.
+        """
 
-    def execute_analysis_plot(self):
+        if self.current_plot_id == "flux_tof":
+            self.execute_flux_tof(refresh=True)
+
+        elif self.current_plot_id == "flux_energy":
+            self.execute_flux_energy(refresh=True)
+
+        elif self.current_plot_id.startswith("NAA"):
+            return
+
+        elif self.current_plot_id.startswith("shielding"):
+            return
+
+        elif self.current_plot_id is not None:
+            self.execute_analysis_plot(refresh=True)
+
+
+    def execute_analysis_plot(self, refresh=False):
 
         numero_plot = self.current_plot_id
         choix = self.selected_plot_label.get()
@@ -2418,6 +2447,45 @@ class NeutronApp:
                     )
 
             # ==========================================================
+            # shielding ANALYSIS
+            # ==========================================================
+
+            if numero_plot.startswith("shielding_"):
+
+                import plot_shielding as pt_shldg
+
+                if numero_plot == "shielding_1":
+                    self.current_fig = pt_shldg.plot_transmission_concentration(
+                        fichiers,
+                        self.datasets,
+                        **base_kwargs
+                    )
+
+                elif numero_plot == "shielding_2":
+                    
+                    self.current_fig = pt_shldg.plot_transmission_concentration_tof(
+                        fichiers,
+                        self.datasets,
+                        **base_kwargs
+                    )
+
+                elif numero_plot == "shielding_3":
+                    
+                    self.current_fig = pt_shldg.plot_transmission_thickness(
+                        fichiers,
+                        self.datasets,
+                        **base_kwargs
+                    )
+
+                elif numero_plot == "shielding_4":
+                    
+                    self.current_fig = pt_shldg.plot_transmission_thickness_tof(
+                        fichiers,
+                        self.datasets,
+                        **base_kwargs
+                    )
+
+            # ==========================================================
             # STANDARD PLOTS
             # ==========================================================
 
@@ -2454,11 +2522,12 @@ class NeutronApp:
             # COMMON POST-PROCESSING
             # ==========================================================
             self.apply_plot_configuration()
-            self._finalize_plot_execution(
-                numero_plot,
-                fichiers,
-                choix
-            )
+            if not refresh:
+                self._finalize_plot_execution(
+                    numero_plot,
+                    fichiers,
+                    choix
+                )
 
         except Exception as e:
             messagebox.showerror(
@@ -2466,7 +2535,7 @@ class NeutronApp:
                 str(e)
             )
 
-    def execute_fit_plot(self):
+    def execute_fit_plot(self, refresh=False):
 
         numero_plot = self.current_plot_id
         choix = self.fit_button.cget("text")
@@ -2648,11 +2717,12 @@ class NeutronApp:
             # COMMON POST PROCESSING
             # ==========================================================
             self.apply_plot_configuration()
-            self._finalize_plot_execution(
-                numero_plot,
-                fichiers,
-                choix
-            )
+            if not refresh:
+                self._finalize_plot_execution(
+                    numero_plot,
+                    fichiers,
+                    choix
+                )
 
         except Exception as e:
 
@@ -2662,7 +2732,7 @@ class NeutronApp:
             )
 
 
-    def execute_flux_tof(self):
+    def execute_flux_tof(self, refresh=False):
         """Plot the corrected neutron flux in the Time-of-Flight domain."""
 
         self.current_plot_id = "flux_tof"
@@ -2682,14 +2752,16 @@ class NeutronApp:
         self.current_fig = pt.plot_flux_tof(
             fichiers,
             self.datasets,
-            **base_kwargs
+            frame = self.plot_frame,
+            **self._get_plot_kwargs()
 
         )
         
         self._apply_display_options()
-        self._finalize_plot_execution(numero_plot="ToF_Flux", fichiers=fichiers, choix="ToF-Flux")
+        if not refresh:
+            self._finalize_plot_execution(numero_plot="ToF_Flux", fichiers=fichiers, choix="ToF-Flux")
 
-    def execute_flux_energy(self):
+    def execute_flux_energy(self, refresh=False):
         """Plot the corrected neutron flux in the Energy domain."""
 
         self.current_plot_id = "flux_energy"
@@ -2713,7 +2785,8 @@ class NeutronApp:
         )
 
         self._apply_display_options()
-        self._finalize_plot_execution(numero_plot="Energy_Flux", fichiers=fichiers, choix="Energy-Flux")
+        if not refresh:
+            self._finalize_plot_execution(numero_plot="Energy_Flux", fichiers=fichiers, choix="Energy-Flux")
 
     
     def _show_markdown_file(self, title, filename):
