@@ -156,7 +156,7 @@ INITIALIZE
 
     N_cd = 4.63e22; /* atomes/cm3 */
 
-    f = fopen("/Users/romainbilly/Documents/stage/xc-cd/endf-6-17666.txt","r");
+    f = fopen("endf-6-17666.txt","r");
     if(!f){
       printf("Cannot open Cd cross section file\n");
       exit(1);
@@ -182,48 +182,13 @@ TRACE
   double yprime;
   PROP_Z0;
   yprime = y + delta_y;
+  double E;
+  double sigma;
+  double T;
+  int i;
 
-  /* Is neutron outside the vertical slit range and should we absorb? */
-  if (abs_out && (x * x + yprime * yprime) > radius * radius) {
-    ABSORB;
-  }
-  /* Does neutron hit inner solid part of chopper in case of yheight!=radius? */
-  if ((x * x + yprime * yprime) < (radius - height) * (radius - height)) {
-    ABSORB;
-  }
 
-  if (isfirst) {
-
-    double E;
-    double sigma;
-    double T;
-    int i;
-
-    /* 25 % passent dans la fente */
-    if (rand01() < 0.25) {
-
-        t = atan2(x,yprime)/omega
-            + To*randpm1()/2.0
-            + delay
-            + (jitter ? jitter*randnorm() : 0)
-            + (n_pulse>1 ? floor(n_pulse*rand01())*Tg : 0);
-
-        p *= nslit*theta_0/(2.0*PI)/0.25;
-
-    }
-    else {
-
-        double sign = (rand01()<0.5) ? -1.0 : 1.0;
-
-        t = atan2(x,yprime)/omega
-            + sign*(To/2.0 + rand01()*(Tg-To)/2.0)
-            + delay
-            + (jitter ? jitter*randnorm() : 0)
-            + (n_pulse>1 ? floor(n_pulse*rand01())*Tg : 0);
-
-        p *= (1.0 - nslit*theta_0/(2.0*PI))/0.75;
-
-        /* énergie en eV */
+  /* énergie en eV */
         E = VS2E*(vx*vx + vy*vy + vz*vz)*1e-3;
         
 
@@ -250,7 +215,40 @@ TRACE
         }
 
         T = exp(-N_cd*sigma*0.1);   /* 1 mm Cd */
-        
+
+  /* Is neutron outside the vertical slit range and should we absorb? */
+  if (abs_out && (x * x + yprime * yprime) > radius * radius) {
+    p*=T;
+  }
+  /* Does neutron hit inner solid part of chopper in case of yheight!=radius? */
+  else if ((x * x + yprime * yprime) < (radius - height) * (radius - height)) {
+    p*=T;
+  }
+  else{
+  if (isfirst) {
+    /* 25 % passent dans la fente */
+    if (rand01() < 0.25) {
+
+        t = atan2(x,yprime)/omega
+            + To*randpm1()/2.0
+            + delay
+            + (jitter ? jitter*randnorm() : 0)
+            + (n_pulse>1 ? floor(n_pulse*rand01())*Tg : 0);
+
+        p *= nslit*theta_0/(2.0*PI)/0.25;
+
+    }
+    else {
+
+        double sign = (rand01()<0.5) ? -1.0 : 1.0;
+
+        t = atan2(x,yprime)/omega
+            + sign*(To/2.0 + rand01()*(Tg-To)/2.0)
+            + delay
+            + (jitter ? jitter*randnorm() : 0)
+            + (n_pulse>1 ? floor(n_pulse*rand01())*Tg : 0);
+
+        p *= (1.0 - nslit*theta_0/(2.0*PI))/0.75;
         p *= T;
     }
 
@@ -261,7 +259,8 @@ TRACE
     if (fmod (toff + To / 2.0, Tg) > To)
       ABSORB;
   }
-  SCATTER;
+  }
+SCATTER;
 %}
 
 MCDISPLAY

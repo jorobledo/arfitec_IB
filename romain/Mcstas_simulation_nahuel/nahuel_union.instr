@@ -74,7 +74,7 @@ AT (0, 0, 0) RELATIVE ABSOLUTE
    ------------------------------------------------------------------ */
 
 COMPONENT CompInstanceName = KDSource(
-  filename = "/Users/romainbilly/Documents/ARGENTINE/kdsource/v2_final/kds_complet.xml",
+  filename = "/home2/home/rbilly/simulation_nahuel/instrument_mcstas/bw_cst/kds_complet.xml",
 nloop=Nkds) 
  AT (0, 0, 0) RELATIVE  ABSOLUTE
 
@@ -322,6 +322,26 @@ WHEN (use_sample)
 AT (0,0,0.315) RELATIVE arm2
 ROTATED (90,0,0) RELATIVE arm2
 
+COMPONENT Bg_poly = NCrystal_sample(
+  cfg = "Polyethylene_CH2.ncmat",
+  radius = 0.05,
+  yheight = 0.10,
+  multscat = 0
+)
+WHEN (use_sample=2)
+AT (0,0,0.315) RELATIVE arm2
+ROTATED (90,0,0) RELATIVE arm2
+
+COMPONENT Bg_cd = NCrystal_sample(
+  cfg = "Cd_sg194_cod9012436.ncmat",
+  radius = 0.05,
+  yheight = 0.001,
+  multscat = 0
+)
+WHEN (use_sample=2)
+AT (0,0,0.3655) RELATIVE arm2
+ROTATED (90,0,0) RELATIVE arm2
+
 COMPONENT arm3 = Arm()
 AT (0,0,1.2235) RELATIVE arm2
 
@@ -434,11 +454,11 @@ AT (0,0,0) RELATIVE arm3
    ------------------------------------------------------------------ */
 
 COMPONENT tof = TOF_efficiency_monitor(
-  nt = 200,
+  nt = 2000,
   xwidth = 0.1524,
   yheight = 0.0762,
-  tmin = -100000,
-  tmax = 100000,
+  tmin = 0,
+  tmax = 4000,
   restore_neutron=1
 )
 AT (0,0,0.3615) RELATIVE arm3
@@ -448,7 +468,7 @@ COMPONENT e = E_monitor(
   xwidth = 0.1524,
   yheight = 0.0762,
   Emin = 0,
-  Emax = 305000000000,
+  Emax = 305,
   restore_neutron=1
 )
 AT (0,0,0.00001) RELATIVE PREVIOUS
@@ -463,6 +483,10 @@ COMPONENT e_log = Monitor_nD(
   filename="e_log.dat",
   restore_neutron=1)
 AT (0,0,0.00001) RELATIVE PREVIOUS
+
+COMPONENT mcpl = MCPL_output()
+AT (0,0,0.00001) RELATIVE PREVIOUS
+
 
 
 FINALLY
