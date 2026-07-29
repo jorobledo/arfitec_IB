@@ -1373,7 +1373,7 @@ class NeutronApp:
         },
 
         "11": {
-            "default_logx": False,
+            "default_logx": True,
             "default_logy": False,
             "display_limits": True,
             "plot8_options": False,
@@ -1482,15 +1482,11 @@ class NeutronApp:
             if i not in self.ordre_selection:
                 self.ordre_selection.append(i)
 
-    def load_files(self):
+    def _load_file_list(self, fichiers):
+        """
+        Common loading routine.
+        """
         if self.is_loading:
-            return
-
-        fichiers = filedialog.askopenfilenames(
-            title="Select neutron data files",
-            filetypes=[("Data files", "*.dat"), ("All files", "*.*")],
-        )
-        if not fichiers:
             return
 
         # --- CREATION OF THE MULTI-FILE PROGRESS WINDOW ---
@@ -1599,17 +1595,23 @@ class NeutronApp:
             self.status_label.config(text="Ready")
             progress_win.destroy()
 
+    def load_files(self):
 
-    def load_folder(self):
-        """
-        Load all .dat files from a selected folder.
-        """
+        fichiers = filedialog.askopenfilenames(
+            title="Select neutron data files",
+            filetypes=[("Data files", "*.dat"), ("All files", "*.*")]
+        )
 
-        if self.is_loading:
+        if not fichiers:
             return
 
+        self._load_file_list(fichiers)
+
+
+    def load_folder(self):
+
         folder = filedialog.askdirectory(
-            title="Select folder containing neutron data",
+            title="Select folder",
             initialdir=os.path.dirname(__file__)
         )
 
@@ -1629,39 +1631,7 @@ class NeutronApp:
             )
             return
 
-        try:
-            self.is_loading = True
-            self.root.config(cursor="watch")
-
-            for fichier in fichiers:
-
-                filename = os.path.basename(fichier)
-
-                # Skip already loaded files
-                if filename in self.datasets:
-                    continue
-
-                try:
-                    self.datasets[filename] = process_neutron_data(fichier)
-
-                    self.file_listbox.insert(
-                        tk.END,
-                        filename
-                    )
-
-                except Exception as e:
-                    messagebox.showerror(
-                        "Parsing Error",
-                        f"Could not parse file:\n{filename}\n\n{e}"
-                    )
-
-            self.status_label.config(
-                text=f"{len(fichiers)} files loaded"
-            )
-
-        finally:
-            self.is_loading = False
-            self.root.config(cursor="")
+        self._load_file_list(fichiers)
 
 
     def clear_cache(self):
