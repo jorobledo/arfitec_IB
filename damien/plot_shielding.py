@@ -9,6 +9,127 @@ from physics import integrate_thermal_epithermal_flux
 from plot import _integrer_canvas
 from scipy.interpolate import interp1d
 
+
+def plot_max_peak_concentration(
+        fichiers,
+        datasets,
+        frame=None):
+    """
+    Plot the evolution of the ToF peak position
+    as a function of B4C concentration.
+    """
+
+    WINDOW = 30
+
+    THERMAL_T_MIN = 100e-6
+    THERMAL_T_MAX = 3700e-6
+
+    if frame is not None:
+        for widget in frame.winfo_children():
+            widget.destroy()
+
+    concentrations = []
+    tof_peak_list = []
+
+    # ==========================================================
+    # Loop over samples
+    # ==========================================================
+
+    for nom in fichiers:
+
+        basename = os.path.basename(nom)
+
+        if basename.lower().startswith("tl"):
+                    concentration = 0.0
+        else:
+            try:
+                concentration = float(basename.split("%")[0])
+            except ValueError:
+                raise ValueError(
+                    f"Unable to extract the B4C concentration from the filename:\n"
+                    f"{basename}\n\n"
+                    "Expected filename format:\n"
+                    "  tl_reference.dat\n"
+                    "  10%_sample.dat\n"
+                    "  25%_sample.dat"
+                )
+
+        data = datasets[nom]
+
+        flux = data["tof_flux"]["all"]["method1"]["flux"]
+        tof = data["tof_flux"]["all"]["method1"]["ToF"]
+
+        mask = (tof >= THERMAL_T_MIN) & (tof <= THERMAL_T_MAX)
+
+        flux = flux[mask]
+        tof = tof[mask]
+
+        if len(flux) < 10:
+            continue
+
+        # ------------------------------------------------------
+        # Peak position
+        # ------------------------------------------------------
+
+        idx_max = np.argmax(flux)
+
+        i0 = max(
+            0,
+            idx_max - WINDOW
+        )
+
+        i1 = min(
+            len(flux),
+            idx_max + WINDOW + 1
+        )
+
+        tof_peak = np.average(
+            tof[i0:i1],
+            weights=flux[i0:i1]
+        )
+
+        concentrations.append(concentration)
+        tof_peak_list.append(tof_peak * 1e6)
+
+    # ==========================================================
+    # Sort by concentration
+    # ==========================================================
+
+    order = np.argsort(concentrations)
+
+    concentrations = np.array(concentrations)[order]
+    tof_peak_list = np.array(tof_peak_list)[order]
+
+    # ==========================================================
+    # Plot
+    # ==========================================================
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    ax.plot(
+        concentrations,
+        tof_peak_list,
+        "o-",
+        linewidth=1.5,
+        markersize=6
+    )
+
+    ax.set_xlabel("B$_4$C concentration (%)")
+    ax.set_ylabel("Peak position (µs)")
+    ax.set_title("Thermal peak position vs concentration")
+
+    ax.grid(
+        True,
+        linestyle="--",
+        alpha=0.5
+    )
+
+    plt.tight_layout()
+
+    _integrer_canvas(fig, frame)
+
+    return fig
+
 def plot_transmission_concentration(fichiers, datasets, comparison_points=None, frame=None):
     """
     Plot the thermal neutron transmission as a function of B4C concentration.
@@ -289,6 +410,7 @@ def plot_transmission_concentration_tof(fichiers, datasets, frame=None):
     ax.set_xlabel("Time of Flight (µs)")
     ax.set_ylabel("Transmission")
     ax.set_title("Neutron Transmission vs Time-of-Flight")
+    ax.set_ylim(-1,1)
 
     ax.grid(True, linestyle="--", alpha=0.5)
     ax.legend()
