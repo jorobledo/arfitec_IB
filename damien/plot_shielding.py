@@ -257,6 +257,61 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
     transmissions = np.array(transmissions)[order]
     unc_transmissions = np.array(unc_transmissions)[order]
 
+    # ==========================================================
+    # Comparison points
+    # ==========================================================
+
+    comparison_data = {}
+
+    if comparison_points:
+
+        for point in comparison_points:
+
+            fichier = point["file"]
+            value = point["value"]
+            element = point["element"]
+
+            data = datasets[os.path.basename(fichier)]
+
+            flux = (
+                data["tof_flux"]["all"]["method1"]["flux"]
+            )
+
+            unc = data["tof_flux"]["all"]["method1"]["unc"]
+
+            tof = data["tof_flux"]["all"]["method1"]["ToF"]
+
+            mask = (
+                (tof >= THERMAL_T_MIN)
+                &
+                (tof <= THERMAL_T_MAX)
+                &
+                (flux > 0)
+            )
+
+            I = np.sum(flux[mask])
+
+            sigma_I = np.sqrt(
+                np.sum(unc[mask] ** 2)
+            )
+
+            transmission = I / I_ref
+
+            sigma_T = transmission * np.sqrt(
+                (sigma_I / I) ** 2 +
+                (sigma_ref / I_ref) ** 2
+            )
+
+            if element not in comparison_data:
+                comparison_data[element] = []
+
+            comparison_data[element].append({
+                "x": value,
+                "T": transmission,
+                "unc": sigma_T
+            })
+
+
 
     # ==========================================================
     # Plot
@@ -272,12 +327,109 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
         fmt="o--",
         capsize=4,
         linewidth=1.5,
-        markersize=6
+        markersize=6,
+        label="B4C thermal transmission"
     )
+
+    # ==========================================================
+    # Plot comparison points
+    # ==========================================================
+
+    from scipy.interpolate import interp1d
+
+    # Interpolation de la courbe principale T(x)
+    curve_interp = interp1d(
+        concentrations,
+        transmissions,
+        kind="linear",
+        bounds_error=False,
+        fill_value="extrapolate"
+    )
+
+    # Interpolation inverse x(T)
+    x_from_y = interp1d(
+        transmissions[::-1],
+        concentrations[::-1],
+        kind="linear",
+        bounds_error=False,
+        fill_value="extrapolate"
+    )
+
+    for element, points in comparison_data.items():
+
+        for point in points:
+
+            x_point = point["x"]
+            y_point = point["T"]
+            yerr = point["unc"]
+
+            try:
+
+                # Position sur la courbe principale ayant la même transmission
+                x_intersect = float(x_from_y(y_point))
+
+                point_artist = ax.errorbar(
+                    x_point,
+                    y_point,
+                    yerr=yerr,
+                    fmt="s",
+                    capsize=4,
+                    markersize=7,
+                    label=(
+                        f"{element} : "
+                        f"x={x_point:.2f} %, "
+                        f"T={y_point:.3f}, "
+                        f"x_eq={x_intersect:.2f} %"
+                    )
+                )
+
+                # Couleur du point
+                color = point_artist[0].get_color()
+
+                # Barre horizontale
+                ax.plot(
+                    [0, x_intersect],
+                    [y_point, y_point],
+                    color=color,
+                    alpha=0.30,
+                    linewidth=2
+                )
+
+                # Barre verticale
+                ax.plot(
+                    [x_intersect, x_intersect],
+                    [0, y_point],
+                    color=color,
+                    alpha=0.30,
+                    linewidth=2
+                )
+
+                # Marque l'intersection avec la courbe
+                ax.plot(
+                    x_intersect,
+                    y_point,
+                    marker="+",
+                    markersize=12,
+                    color=color,
+                    alpha=0.8
+                )
+
+            except Exception as e:
+
+                print(
+                    f"Cannot determine intersection for "
+                    f"{element}: {e}"
+                )
 
     ax.set_xlabel("B$_4$C concentration (%)")
     ax.set_ylabel("Thermal neutron transmission")
     ax.set_title("Thermal neutron transmission")
+
+    ax.grid(True, linestyle="--", alpha=0.5)
+    handles, labels = ax.get_legend_handles_labels()
+
+    if labels:
+        ax.legend()
 
     ax.grid(True, linestyle="--", alpha=0.5)
 
@@ -661,7 +813,8 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
         fmt="o--",
         capsize=4,
         linewidth=1.5,
-        markersize=6
+        markersize=6,
+        label="B4C transmission"
     )
 
     # ==========================================================
