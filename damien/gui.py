@@ -595,8 +595,9 @@ class NeutronApp:
         shielding_options = [
             ("Thermal Transmission (Concentration)", "shielding_1"),
             ("Thermal Transmission ToF (Concentration)", "shielding_2"),
-            ("Total Transmission (Thickness)", "shielding_3"),
-            ("Total Transmission ToF(Thickness)", "shielding_4"),
+            ("Max Peak Shifting", "shielding_3"),
+            ("Total Transmission (Thickness)", "shielding_4"),
+            ("Total Transmission ToF(Thickness)", "shielding_5"),
         ]
         for label, p_id in shielding_options:
             self.shielding_submenu.add_command(
@@ -1473,9 +1474,8 @@ class NeutronApp:
         "shielding_3": {
             "default_logx": False,
             "default_logy": False,
-            "display_limits": False,
+            "display_limits": True,
             "plot8_options": False,
-            "show_comparison":True,
         },
 
         "shielding_4": {
@@ -1483,8 +1483,15 @@ class NeutronApp:
             "default_logy": False,
             "display_limits": True,
             "plot8_options": False,
+            "show_comparison":True,
         },
 
+        "shielding_5": {
+            "default_logx": False,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
     }
 
 
@@ -2640,6 +2647,14 @@ class NeutronApp:
                     )
 
                 elif numero_plot == "shielding_3":
+                    self.current_fig = pt_shldg.plot_max_peak_concentration(
+                        fichiers,
+                        self.datasets,
+                        **base_kwargs
+                    )
+
+                elif numero_plot == "shielding_4":
+                    
                     self.current_fig = pt_shldg.plot_transmission_thickness(
                         fichiers,
                         self.datasets,
@@ -2647,8 +2662,8 @@ class NeutronApp:
                         **base_kwargs
                     )
 
-                elif numero_plot == "shielding_4":
-                    
+                elif numero_plot == "shielding_5":
+                                    
                     self.current_fig = pt_shldg.plot_transmission_thickness_tof(
                         fichiers,
                         self.datasets,
