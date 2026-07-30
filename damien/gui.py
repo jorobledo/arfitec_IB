@@ -1333,6 +1333,7 @@ class NeutronApp:
             "default_logy": False,
             "display_limits": True,
             "plot8_options": False,
+            "tof_options":True,
         },
 
         "flux_energy": {
@@ -1340,6 +1341,7 @@ class NeutronApp:
             "default_logy": False,
             "display_limits": True,
             "plot8_options": False,
+            "E_options":True,
         },
 
         # --------------------------------------------------
@@ -2007,6 +2009,32 @@ class NeutronApp:
             self.limits_frame.pack_forget()
 
         # --------------------------------------------------
+        # Tof options display
+        # --------------------------------------------------
+
+        if cfg.get("tof_options", False):
+            self.flux_tof_frame.pack(
+                padx=12,
+                pady=(2, 8),
+                fill="x"
+            )
+        else:
+            self.flux_tof_frame.pack_forget()
+
+        # --------------------------------------------------
+        # E options display
+        # --------------------------------------------------
+
+        if cfg.get("E_options", False):
+            self.flux_E_frame.pack(
+                padx=12,
+                pady=(2, 8),
+                fill="x"
+            )
+        else:
+            self.flux_E_frame.pack_forget()
+
+        # --------------------------------------------------
         # Comparison points
         # --------------------------------------------------
 
@@ -2420,6 +2448,11 @@ class NeutronApp:
             kwargs.update({
                 "correction_mode": self.show_correction_var.get(),
                 "grouping_method": self.grouping_method_var.get(),
+            })
+
+        if self.current_plot_id.startswith("flux_energy"):  
+            kwargs.update({
+                "show_fluxE": self.show_fluxE_var.get(),
             })
 
         if self.current_plot_id.startswith("8"):
@@ -2966,7 +2999,8 @@ class NeutronApp:
         self.current_fig = pt.plot_flux_energy(
             fichiers,
             self.datasets,
-            **base_kwargs
+            frame = self.plot_frame,
+            **self._get_plot_kwargs()
         )
 
         self._apply_display_options()
