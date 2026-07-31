@@ -1755,7 +1755,7 @@ class NeutronApp:
     def _process_plot_statistics(self, numero_plot, fichiers, choix):
         """Handles extraction, translation, and display of numerical data according to plot type."""
         # Default case if no results are expected
-        if numero_plot not in ["6", "7.1", "7.2", "8.1", "8.2"]:
+        if numero_plot not in ["6", "7.1", "7.2", "8"]:
             self.update_stats_display("No fit has been executed yet. Run a Maxwellian Fit to display numerical results here.")
             return
 
@@ -1800,13 +1800,62 @@ class NeutronApp:
                     summary += f"  -> {key_mapping.get(key, key)} : {val:.4f}\n"
 
         # --- Formatage pour les Plots 8.1 et 8.2 ---
-        elif numero_plot in ["8"]:
+        elif numero_plot == "8" and  self.plot8_results:
+
             summary += f" ENERGY SPECTRUM MODELING (Plot {numero_plot})\n"
             summary += "==================================================\n\n"
-            summary += f"Based on prior fit parameters from: {fichiers[0]}\n"
-            summary += "Plots display converted Time-of-Flight configurations into Energy scale (eV).\n"
-            summary += "Review 'Fit Results & Stats' tab parameters for exact scaling coefficients."
 
+            summary += f"Primary Analyzed File : {fichiers[0]}\n\n"
+
+            # --------------------------------------------------
+            # Select Flux(E) or Flux(E)×E results
+            # --------------------------------------------------
+            flux_model = (
+                self.plot8_results["fluxE"]
+                if self.show_fluxE_var.get()
+                else self.plot8_results["flux"]
+            )
+            summary += "Extracted Physical Parameters :\n\n"
+            summary += (
+                f"  -> Maxwellian Temperature : "
+                f"{flux_model['temperature']:.2f} K\n"
+            )
+            summary += (
+                f"  -> R² Maxwell Fit : "
+                f"{flux_model['scores']['maxwell']:.4f}\n"
+            )
+            summary += (
+                f"  -> R² ToF Converted : "
+                f"{flux_model['scores']['tof']:.4f}\n"
+            )
+            summary += (
+                f"  -> R² ToF + Epithermal : "
+                f"{flux_model['scores']['tof_epi']:.4f}\n"
+            )
+            summary += "\nDisplayed Components :\n"
+            summary += (
+                f"  -> Experimental Spectrum : Yes\n"
+            )
+            summary += (
+                f"  -> Maxwell Fit : "
+                f"{'Yes' if self.show_maxwell_var.get() else 'No'}\n"
+            )
+            summary += (
+                f"  -> ToF Converted : "
+                f"{'Yes' if self.show_tof_var.get() else 'No'}\n"
+            )
+            summary += (
+                f"  -> ToF + Epithermal : "
+                f"{'Yes' if self.show_tof_epi_var.get() else 'No'}\n"
+            )
+            summary += (
+                f"  -> Analytical Epithermal : "
+                f"{'Yes' if self.show_epi_var.get() else 'No'}\n"
+            )
+            summary += (
+                f"\nDisplayed Quantity : "
+                f"{'Flux(E) × E' if self.show_fluxE_var.get() else 'Flux(E)'}\n"
+            )
         # Envoi final vers le widget de l'IHM
         self.update_stats_display(summary)
 
@@ -2783,43 +2832,6 @@ class NeutronApp:
                     **base_kwargs
                 )
 
-                from physics import fit_maxwellian_grid_search
-
-                summary = "==================================================\n"
-                summary += " GRID SEARCH MAXWELLIAN FIT RESULTS\n"
-                summary += "==================================================\n\n"
-
-                for nom in fichiers:
-
-                    data = self.datasets[nom]
-
-                    mask = (
-                        (data["ToF"] >= PARAMS["t_min"])
-                        &
-                        (data["ToF"] <= PARAMS["t_max"])
-                    )
-
-                    ToF_fit = data["ToF"][mask]
-                    flux_fit = data["flux_tof"][mask]
-
-                    T_best, erreur_min = fit_maxwellian_grid_search(
-                        ToF_fit,
-                        flux_fit,
-                        data["meta"]["path_length"]
-                    )
-
-                    summary += f"Dataset File : {nom}\n"
-                    summary += f"  -> Best Fit Temperature : {T_best:.2f} K\n"
-                    summary += f"  -> Minimum Residual Error : {erreur_min:.2e}\n"
-                    summary += (
-                        f"  -> Active Time Range : "
-                        f"{PARAMS['t_min']*1e6:.1f} "
-                        f"to "
-                        f"{PARAMS['t_max']*1e6:.1f} µs\n\n"
-                    )
-
-                self.update_stats_display(summary)
-
             # ==========================================================
             # PLOT 7
             # ==========================================================
@@ -2833,66 +2845,6 @@ class NeutronApp:
                     **base_kwargs
                 )
 
-                if self.fit_results:
-
-                    summary = "==================================================\n"
-                    summary += f" ADVANCED CURVE FIT RESULTS (Plot {numero_plot})\n"
-                    summary += "==================================================\n\n"
-
-                    summary += f"Primary Analyzed File : {fichiers[0]}\n\n"
-
-                    summary += (
-                        "Extracted Physical Constants & Parameters :\n"
-                    )
-
-                    key_mapping = {
-
-                        "T_1":
-                            "Pure Maxwellian Temperature (T1)",
-
-                        "T_1_epi":
-                            "Maxwellian + Epithermal Temperature (T1_epi)",
-
-                        "r_squared_1":
-                            "R² Coefficient (Pure Maxwellian)",
-
-                        "r_squared_2":
-                            "R² Coefficient (Grouped Maxwellian)",
-
-                        "r_squared_1_epi":
-                            "R² Coefficient (Maxwellian + Epithermal)",
-
-                        "a1_tof_pure_1":
-                            "Amplitude Factor a1 (Model 1)",
-
-                        "a1_tof_pure_2":
-                            "Amplitude Factor a1 (Model 2)",
-
-                        "Ed_epi_1":
-                            "Epithermal Cutoff Energy (Ed)",
-
-                        "b_epi_1":
-                            "Epithermal Parameter b",
-
-                        "beta_epi_1":
-                            "Epithermal Parameter beta"
-
-                    }
-
-                    for key, val in self.fit_results.items():
-
-                        if isinstance(
-                            val,
-                            (int, float, np.float64, np.int64)
-                        ):
-
-                            label_en = key_mapping.get(key, key)
-
-                            summary += (
-                                f"  -> {label_en} : {val:.4f}\n"
-                            )
-
-                    self.update_stats_display(summary)
 
             # ==========================================================
             # PLOT 8
@@ -2901,35 +2853,12 @@ class NeutronApp:
             elif numero_plot in ["8"]:
 
                 self.show_plot8_controls()
-                self.current_fig = pt.plot_8(
+                self.current_fig, self.plot8_results = pt.plot_8(
                     fichiers,
                     self.datasets,
                     frame=self.plot_frame,
                     **self._get_plot_kwargs()
                 )
-
-                summary = "==================================================\n"
-                summary += (
-                    f" ENERGY SPECTRUM MODELING (Plot {numero_plot})\n"
-                )
-                summary += "==================================================\n\n"
-
-                summary += (
-                    f"Based on prior fit parameters from : "
-                    f"{fichiers[0]}\n\n"
-                )
-
-                summary += (
-                    "Plots display converted Time-of-Flight "
-                    "configurations into Energy scale (eV).\n"
-                )
-
-                summary += (
-                    "Review 'Fit Results & Stats' tab "
-                    "parameters for exact scaling coefficients."
-                )
-
-                self.update_stats_display(summary)
 
             # ==========================================================
             # COMMON POST PROCESSING

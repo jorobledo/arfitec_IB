@@ -347,6 +347,7 @@ def plot_8(
         capsize=2,
         label="Experimental",
     )
+    
 
     if show_maxwell:
         ax.plot(
@@ -391,11 +392,12 @@ def plot_8(
 
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Flux × E" if show_fluxE else "Flux")
-
+   
     if show_logx:
         ax.set_xscale("log")
     if show_logy:
         ax.set_yscale("log")
+        
 
     ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)
     ax.legend(fontsize=8)
@@ -403,7 +405,7 @@ def plot_8(
     plt.tight_layout()
     _integrer_canvas(fig, frame)
 
-    return fig
+    return fig, models
 
 def plot_9(fichiers, datasets, frame=None):
     print('Calculating please wait...')
@@ -803,8 +805,6 @@ def plot_flux_energy(fichiers, datasets, frame=None, **kwargs):
     show_fluxE = True  -> Flux(E) × E
     show_fluxE = False -> Flux(E)*
     """
-
-    print("show_fluxE =", kwargs.get("show_fluxE"))
 
     E_min = PARAMS['E_min']
     E_max = PARAMS['E_max']
