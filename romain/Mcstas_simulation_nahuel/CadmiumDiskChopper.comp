@@ -60,6 +60,7 @@
 * verbose: [1]    Set to 1 to display Disk chopper configuration
 * thick : [cm]    Thickness of the Disk chopper 
 * proba : [1]    Probability for the neutron of passing in the chopper slit -> biased simulation (if proba = -1 -> unbiaised)
+* squared_limit : [m] Above this limit, neutrons are absorbed
 *
 * %E
 * COMMENT
@@ -70,7 +71,7 @@ DEFINE COMPONENT CadmiumDiskChopper
 
 
 
-SETTING PARAMETERS (theta_0=0, radius=0.5, yheight, nu, nslit=3, jitter=0, delay=0, isfirst=0, n_pulse=1, abs_out=1, phase=0, xwidth=0, verbose=0, thick=0.1, proba = 0.25)
+SETTING PARAMETERS (theta_0=0, radius=0.5, yheight, nu, nslit=3, jitter=0, delay=0, isfirst=0, n_pulse=1, abs_out=1, phase=0, xwidth=0, verbose=0, thick=0.1, proba = 0.25, squared_limit=0.1)
 
 
 /* Neutron parameters: (x,y,z,vx,vy,vz,t,sx,sy,sz,p) */
@@ -193,6 +194,10 @@ TRACE
   double sigma;
   double T;
   int i;
+
+  if ((x>squared_limit)||(x<-squared_limit)||(y>squared_limit)||(y<-squared_limit)){
+    ABSORB;
+  }
 
 
   /* énergie en eV */
