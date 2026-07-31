@@ -1,4 +1,4 @@
-DEFINE INSTRUMENT template_simple(use_sample=1, Nkds=10)
+DEFINE INSTRUMENT template_simple(use_sample=1, Nkds=10, source=1)
 
 DECLARE
 %{
@@ -73,10 +73,32 @@ AT (0, 0, 0) RELATIVE ABSOLUTE
    Source Maxwellienne
    ------------------------------------------------------------------ */
 
-COMPONENT CompInstanceName = KDSource(
-  filename = "/home2/home/rbilly/simulation_nahuel/instrument_mcstas/bw_cst/kds_complet.xml",
+COMPONENT source1 = KDSource(
+  filename = "/home2/home/rbilly/simulation_nahuel/instrument_mcstas/kds/1_bw_cst.xml",
 nloop=Nkds) 
+WHEN (source = 1)
  AT (0, 0, 0) RELATIVE  ABSOLUTE
+
+
+ COMPONENT source2 = KDSource(
+  filename = "/home2/home/rbilly/simulation_nahuel/instrument_mcstas/kds/2_bw_cst_epi.xml",
+nloop=Nkds) 
+ WHEN (source = 2)
+
+
+
+ AT (0, 0, 0) RELATIVE  ABSOLUTE
+
+ COMPONENT e_log0 = Monitor_nD(
+  xwidth = 0.1524,
+  yheight = 0.0762,
+  options="log energy",   // log-spaced energy axis
+  bins=1000,
+  min=1,                   // meV
+  max=10,              // meV
+  filename="e_log0.dat",
+  restore_neutron=1)
+AT (0,0,0.01) RELATIVE PREVIOUS
 
 
 COMPONENT arm1 = Arm()
@@ -95,7 +117,7 @@ COMPONENT polyethylene_1 = Union_make_material(
 AT (0,0,0) RELATIVE arm1
 
 COMPONENT cadmium_1 = Union_make_material(
- process_string = "Cd_sg194_cod9012436.ncmat",
+ process_string = "diffusion_polyethylene_1",
  init = "init_1",
  my_absorption = 10230)
 AT (0,0,0) RELATIVE arm1
@@ -162,14 +184,16 @@ COMPONENT stop_1 = Union_stop()
 AT (0,0,0) RELATIVE arm1
 
 
-COMPONENT chopper = DiskChopper(
+COMPONENT chopper = CadmiumDiskChopper(
   xwidth = 0.001,
   radius = 0.07,
   yheight = 0.01,
   nu = 66.666,
   nslit = 1,
   isfirst = 1,
-  n_pulse = 2
+  n_pulse = 3,
+  proba = 0.5,
+  thick = 0.1
   )
 AT (0,0,0.13) RELATIVE ABSOLUTE
 
@@ -453,12 +477,22 @@ AT (0,0,0) RELATIVE arm3
    6 inch * 3 inch = 15.24 cm * 7.62 cm
    ------------------------------------------------------------------ */
 
-COMPONENT tof = TOF_efficiency_monitor(
+COMPONENT tof_eff = TOF_efficiency_monitor(
   nt = 2000,
   xwidth = 0.1524,
   yheight = 0.0762,
-  tmin = 0,
-  tmax = 4000,
+  tmin = -5000,
+  tmax = 10000,
+  restore_neutron=1
+)
+AT (0,0,0.3615) RELATIVE arm3
+
+COMPONENT tof = TOF_monitor(
+  nt = 2000,
+  xwidth = 0.1524,
+  yheight = 0.0762,
+  tmin = -5000,
+  tmax = 10000,
   restore_neutron=1
 )
 AT (0,0,0.3615) RELATIVE arm3
@@ -484,8 +518,8 @@ COMPONENT e_log = Monitor_nD(
   restore_neutron=1)
 AT (0,0,0.00001) RELATIVE PREVIOUS
 
-COMPONENT mcpl = MCPL_output()
-AT (0,0,0.00001) RELATIVE PREVIOUS
+//COMPONENT mcpl = MCPL_output()
+//AT (0,0,0.00001) RELATIVE PREVIOUS
 
 
 
