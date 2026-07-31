@@ -299,6 +299,11 @@ DECLARE
   // Surfaces
   int longest_surface_stack;
   struct surface_stack_struct interface_stack;
+
+  //our bricolage
+  int n_xs;
+  double E_tab[50000];
+  double sigma_tab[50000];
 %}
 
 INITIALIZE
@@ -1109,6 +1114,26 @@ INITIALIZE
 
   // Signal initialization complete
   MPI_MASTER (printf ("Union_master component %s initialized sucessfully\n", NAME_CURRENT_COMP);)
+
+  FILE *f;
+    char line[256];
+
+    f = fopen("endf-6-17666.txt","r");
+    if(!f){
+      printf("Cannot open Cd cross section file\n");
+      exit(1);
+    }
+
+    fgets(line,256,f); /* saute l'en-tête */
+
+    n_xs = 0;
+    while(fscanf(f,"%lf,%lf",&E_tab[n_xs],&sigma_tab[n_xs])==2){
+      n_xs++;
+      if(n_xs>=50000) break;
+    }
+    
+
+    fclose(f);
 %}
 
 TRACE
@@ -1726,11 +1751,37 @@ TRACE
           my_sum_plus_abs = my_sum + Volumes[current_volume]->p_physics->my_a * (2200 / v_length);
         // our bricolage
       if (Volumes[current_volume]->p_physics->my_a==10230){
-        if (v_length < 9780){
-          ABSORB;
-        } else {
-          my_sum_plus_abs = my_sum + 1;
+        double E;
+  double sigma;
+  int i;
+
+
+  /* énergie en eV */
+        E = VS2E*(vx*vx + vy*vy + vz*vz)*1e-3;
+        
+
+        /* interpolation log-log */
+        if(E<=E_tab[0]){
+            sigma = sigma_tab[0];
         }
+        else if(E>=E_tab[n_xs-1]){
+            sigma = sigma_tab[n_xs-1];
+        }
+        else{
+            for(i=0;i<n_xs-1;i++){
+                if(E<E_tab[i+1]){
+
+                    double x1=log(E_tab[i]);
+                    double x2=log(E_tab[i+1]);
+                    double y1=log(sigma_tab[i]);
+                    double y2=log(sigma_tab[i+1]);
+
+                    sigma = exp(y1+(y2-y1)*(log(E)-x1)/(x2-x1));
+                    break;
+                }
+            }
+        }
+        my_sum_plus_abs = my_sum + sigma;
       }
           // New flow:length_to_boundary
 
