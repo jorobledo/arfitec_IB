@@ -58,17 +58,19 @@
 * phase: [deg]    Angular 'delay' (overrides delay)
 * xwidth: [m]     Horizontal slit width opening at beam center
 * verbose: [1]    Set to 1 to display Disk chopper configuration
+* thick : [cm]    Thickness of the Disk chopper 
+* proba : [1]    Probability for the neutron of passing in the chopper slit -> biased simulation (if proba = -1 -> unbiaised)
 *
 * %E
 * COMMENT
 * We allow the Chopper to be made of cadmium, and transmit according to the absorption XS. No scatter process.
 *******************************************************************************/
 
-DEFINE COMPONENT DiskChopper
+DEFINE COMPONENT CadmiumDiskChopper
 
 
 
-SETTING PARAMETERS (theta_0=0, radius=0.5, yheight, nu, nslit=3, jitter=0, delay=0, isfirst=0, n_pulse=1, abs_out=1, phase=0, xwidth=0, verbose=0)
+SETTING PARAMETERS (theta_0=0, radius=0.5, yheight, nu, nslit=3, jitter=0, delay=0, isfirst=0, n_pulse=1, abs_out=1, phase=0, xwidth=0, verbose=0, thick=0.1, proba = 0.25)
 
 
 /* Neutron parameters: (x,y,z,vx,vy,vz,t,sx,sy,sz,p) */
@@ -151,8 +153,11 @@ INITIALIZE
     printf ("DiskChopper: %s: frequency=%g [Hz] %g [rpm], time frame=%g [s] phase=%g [deg]\n", NAME_CURRENT_COMP, nu, nu * 60, Tg, phase * RAD2DEG);
     printf ("             %g slits, angle=%g [deg] height=%g [m], width=%g [m] at radius=%g [m]\n", nslit, theta_0 * RAD2DEG, height, xwidth, delta_y);
   }
+  if (proba == (-1)) {
+    proba = To/Tg;
+  }
 
-  {
+  
     FILE *f;
     char line[256];
 
@@ -175,7 +180,7 @@ INITIALIZE
     
 
     fclose(f);
-  }
+  
 %}
 
 TRACE
@@ -216,20 +221,21 @@ TRACE
             }
         }
 
-        T = exp(-N_cd*sigma*0.1);   /* 1 mm Cd */
+        T = exp(-N_cd*sigma*thick);   /* 1 mm Cd */
 
   /* Is neutron outside the vertical slit range and should we absorb? */
-  if (abs_out && (x * x + yprime * yprime) > radius * radius) {
-    p*=T;
-  }
-  /* Does neutron hit inner solid part of chopper in case of yheight!=radius? */
-  else if ((x * x + yprime * yprime) < (radius - height) * (radius - height)) {
+  
+  if (isfirst) {
+
+    if (((abs_out && (x * x + yprime * yprime) > radius * radius)) || ((x * x + yprime * yprime) < (radius - height) * (radius - height))) {
+          t = Tg*randpm1()/2.0
+            + delay
+            + (jitter ? jitter*randnorm() : 0)
+            + (n_pulse>1 ? floor(n_pulse*rand01())*Tg : 0);
     p*=T;
   }
   else{
-  if (isfirst) {
-    /* 25 % passent dans la fente */
-    if (rand01() < 0.25) {
+    if (rand01() < proba) {
 
         t = atan2(x,yprime)/omega
             + To*randpm1()/2.0
@@ -237,7 +243,7 @@ TRACE
             + (jitter ? jitter*randnorm() : 0)
             + (n_pulse>1 ? floor(n_pulse*rand01())*Tg : 0);
 
-        p *= nslit*theta_0/(2.0*PI)/0.25;
+        p *= nslit*theta_0/(2.0*PI)/proba;
 
     }
     else {
@@ -250,18 +256,20 @@ TRACE
             + (jitter ? jitter*randnorm() : 0)
             + (n_pulse>1 ? floor(n_pulse*rand01())*Tg : 0);
 
-        p *= (1.0 - nslit*theta_0/(2.0*PI))/0.75;
+        p *= (1.0 - nslit*theta_0/(2.0*PI))/(1-proba);
         p *= T;
-    }
+    }}
+    
 
 } else {
+  if (((abs_out && (x * x + yprime * yprime) > radius * radius)) || ((x * x + yprime * yprime) < (radius - height) * (radius - height))) {
+    p*=T;}
+    else{
     toff = fabs (t - atan2 (x, yprime) / omega - delay - (jitter ? jitter * randnorm () : 0));
-
-    /* does neutron hit outside slit? */
     if (fmod (toff + To / 2.0, Tg) > To)
-      ABSORB;
+    p*=T;}
   }
-  }
+  
 SCATTER;
 %}
 
