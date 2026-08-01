@@ -5,6 +5,31 @@ import scipy.constants as cst
 import os
 from scipy.optimize import curve_fit
 from config import PARAMS
+from pathlib import Path
+import pickle
+
+
+CACHE_DIR = Path("cache")
+CACHE_DIR.mkdir(exist_ok=True)
+CACHE_VERSION = 1
+
+def get_cache_path(filename):
+    return CACHE_DIR / (Path(filename).stem + ".pkl")
+
+def save_cache(cache_file, data):
+    with open(cache_file, "wb") as f:
+        pickle.dump(data, f)
+
+def load_cache(cache_file):
+    with open(cache_file, "rb") as f:
+        return pickle.load(f)
+
+def cache_is_valid(filename, cache_file):
+
+    if not cache_file.exists():
+        return False
+
+    return os.path.getmtime(cache_file) >= os.path.getmtime(filename)
     
 """ Constants """
 
@@ -42,7 +67,7 @@ def apply_dead_time_correction(counts, dead_time, nbr_frames, channel_width):
     return counts / (1 - counts * dead_time / (nbr_frames * channel_width))
 
 
-def remove_background(counts, n_pts=100):
+def remove_background(counts, n_pts=500):
     """Calculates and subtracts average background measured on last channels."""
     bg = np.mean(counts[-n_pts:])
     return counts - bg
@@ -84,11 +109,13 @@ def convert_to_energy_scale(flux_tof, ToF, path_length, unc_tof):
     E_joules = E * eV
     
     # Calculate Jacobian |dt/dE|
-    jacobian = 0.5 * path_length * np.sqrt(masse_n / (2 * E_joules**3))
-    
-    flux_E = flux_tof * jacobian
+    jacobian_dt_dE = 0.5 * path_length * np.sqrt(masse_n / (2 * E_joules**3))
+    # Calculate Jacobian |dE/dt| 
+    jacobian_dE_dt = 2 * E_joules / ToF
+
+    flux_E = flux_tof * jacobian_dt_dE * eV
     flux_E2 = flux_E * E
-    unc_E2 = np.abs(unc_tof * (flux_tof / 2.0))
+    unc_E2 = np.abs(unc_tof * (ToF / 2.0))
     unc_E = np.abs(unc_E2 / E)
     return E, flux_E, flux_E2, unc_E, unc_E2
 
@@ -248,81 +275,276 @@ def compute_fit_results_from_dataset(data):
     return fit_results
 
 
-def compute_plot8_models(data, fit_results=None):
-    """Calculates models and conversions needed for plots 8.x.
-    If `fit_results` (temporal) is provided, also converts models ToF -> E.
-    Returns a dict with keys: flux_modele_1, flux_modele_2, jacobian, flux_tof_pure_converted, flux_tof_epi_converted, masks, and parameters T, R².
+def compute_plot8_models(data):
     """
+    Compute all models required for energy-domain plots.
+
+    This function is fully autonomous:
+      - Computes the ToF fits internally.
+      - Fits Maxwell models directly in energy space.
+      - Converts ToF models into energy space.
+      - Computes analytical Maxwell + epithermal models.
+      - Computes R² values and temperatures.
+
+    Returns
+    -------
+    dict
+        Dictionary containing every model, parameter and metric required by plot_8().
+    """
+
+    # ------------------------------------------------------------------
+    # Compute ToF fits internally
+    # ------------------------------------------------------------------
+    fit_results = compute_fit_results_from_dataset(data)
+
     E_min = PARAMS['E_min']
     E_max = PARAMS['E_max']
 
     mask_E = (data['E'] >= E_min) & (data['E'] <= E_max)
     mask_epi = (data['E'] >= 0.4) & (data['E'] <= E_max)
 
-    borne_inf = [0.0, 5.8]
-    borne_sup = [np.inf, 232.0]
+    # ------------------------------------------------------------------
+    # Jacobian (dt/dE)
+    # ------------------------------------------------------------------
+    E_joules = data['E'] * eV
 
-    E_joules_all = data['E'] * eV
-    jacobian = 0.5 * data['meta']['path_length'] * np.sqrt(masse_n / (2 * E_joules_all**3))
+    jacobian = (
+        0.5
+        * data['meta']['path_length']
+        * np.sqrt(masse_n / (2 * E_joules**3))
+        * eV
+    )
 
-    p0_1 = [np.max(data['flux_E']) / np.max(data['E']), 1 / (k_b / eV * 300)]
-    popt_1, pcov_1 = curve_fit(maxwell_model_E, data['E'][mask_E], data['flux_E'][mask_E], p0=p0_1, bounds=(borne_inf, borne_sup))
-    a0_best_1, a1_best_1 = popt_1[0], popt_1[1]
-    perr_1 = np.sqrt(np.diag(pcov_1))
+    # ------------------------------------------------------------------
+    # Maxwell fit on Flux(E)
+    # ------------------------------------------------------------------
+    bounds_low = [0.0, 5.8]
+    bounds_high = [np.inf, 232.0]
 
-    flux_modele_1 = maxwell_model_E(data['E'], a0_best_1, a1_best_1)
-    r_squared_1 = calculate_r_squared(data['flux_E'][mask_E], flux_modele_1[mask_E])
+    p0_1 = [
+        np.max(data["flux_E"]) / np.max(data["E"]),
+        1 / (k_b / eV * 300),
+    ]
+
+    popt_1, pcov_1 = curve_fit(
+        maxwell_model_E,
+        data["E"][mask_E],
+        data["flux_E"][mask_E],
+        p0=p0_1,
+        bounds=(bounds_low, bounds_high),
+    )
+
+    a0_best_1, a1_best_1 = popt_1
+
+    flux_modele_1 = maxwell_model_E(data["E"], a0_best_1, a1_best_1)
+
+    r_squared_1 = calculate_r_squared(
+        data["flux_E"][mask_E],
+        flux_modele_1[mask_E],
+    )
+
     T_1 = 1 / (k_b / eV * a1_best_1)
 
-    p0_2 = [np.max(data['flux_E2']) / np.max(data['E']), 1 / (k_b / eV * 300)]
-    popt_2, pcov_2 = curve_fit(maxwell_model_E_corr, data['E'][mask_E], data['flux_E2'][mask_E], p0=p0_2, bounds=(borne_inf, borne_sup))
-    a0_best_2, a1_best_2 = popt_2[0], popt_2[1]
+    # ------------------------------------------------------------------
+    # Maxwell fit on Flux(E) × E
+    # ------------------------------------------------------------------
+    p0_2 = [
+        np.max(data["flux_E2"]) / np.max(data["E"]),
+        1 / (k_b / eV * 300),
+    ]
 
-    flux_modele_2 = maxwell_model_E_corr(data['E'], a0_best_2, a1_best_2)
-    r_squared_2 = calculate_r_squared(data['flux_E2'][mask_E], flux_modele_2[mask_E])
+    popt_2, pcov_2 = curve_fit(
+        maxwell_model_E_corr,
+        data["E"][mask_E],
+        data["flux_E2"][mask_E],
+        p0=p0_2,
+        bounds=(bounds_low, bounds_high),
+    )
+
+    a0_best_2, a1_best_2 = popt_2
+
+    flux_modele_2 = maxwell_model_E_corr(
+        data["E"],
+        a0_best_2,
+        a1_best_2,
+    )
+
+    r_squared_2 = calculate_r_squared(
+        data["flux_E2"][mask_E],
+        flux_modele_2[mask_E],
+    )
+
     T_2 = 1 / (k_b / eV * a1_best_2)
 
-    out = {
-        'flux_modele_1': flux_modele_1,
-        'flux_modele_2': flux_modele_2,
-        'jacobian': jacobian,
-        'mask_E': mask_E,
-        'mask_epi': mask_epi,
-        'T_1': T_1,
-        'T_2': T_2,
-        'r_squared_1': r_squared_1,
-        'r_squared_2': r_squared_2
-    }
+    # ------------------------------------------------------------------
+    # Convert pure Maxwell ToF fit into energy space
+    # ------------------------------------------------------------------
+    flux_tof_pure = maxwell_model_tof(
+        data["ToF"],
+        fit_results["a0_tof_pure_1"],
+        fit_results["a1_tof_pure_1"],
+    )
 
-    # Expose fitted parameters for possible downstream use
-    out['a0_best_1'] = a0_best_1
-    out['a1_best_1'] = a1_best_1
-    out['a0_best_2'] = a0_best_2
-    out['a1_best_2'] = a1_best_2
+    flux_tof_pure_converted = flux_tof_pure * jacobian
 
-    if fit_results is not None:
-        a0_tof = fit_results.get('a0_tof_pure_1')
-        a1_tof = fit_results.get('a1_tof_pure_1')
-        if a0_tof is not None and a1_tof is not None:
-            flux_tof_pure_poly = maxwell_model_tof(data['ToF'], a0_tof, a1_tof)
-            flux_tof_pure_converted = flux_tof_pure_poly * jacobian
-            out['flux_tof_pure_converted'] = flux_tof_pure_converted
+    r2_tof_conv_1 = calculate_r_squared(
+        data["flux_E"][mask_E],
+        flux_tof_pure_converted[mask_E],
+    )
 
-        # If epithermal temporal params exist, convert them too
-        try:
-            a0_from_tof = fit_results['a0_epi_1']
-            a1_from_tof = fit_results['a1_epi_1']
-            a2_from_tof = fit_results['a2_epi_1']
-            Ed_from_tof = fit_results['Ed_epi_1']
-            b_from_tof = fit_results['b_epi_1']
-            beta_from_tof = fit_results['beta_epi_1']
-            flux_tof_epi_pure = model_tof_epi(data['ToF'], a0_from_tof, a1_from_tof, a2_from_tof, Ed_from_tof, b_from_tof, beta_from_tof, data['E'])
-            flux_tof_epi_converted = flux_tof_epi_pure * jacobian
-            out['flux_tof_epi_converted'] = flux_tof_epi_converted
-        except KeyError:
-            pass
+    r2_tof_conv_2 = calculate_r_squared(
+        data["flux_E2"][mask_E],
+        (flux_tof_pure_converted * data["E"])[mask_E],
+    )
 
-    return out
+    # ------------------------------------------------------------------
+    # Convert ToF Maxwell + epithermal model into energy space
+    # ------------------------------------------------------------------
+    flux_tof_epi = model_tof_epi(
+        data["ToF"],
+        fit_results["a0_epi_1"],
+        fit_results["a1_epi_1"],
+        fit_results["a2_epi_1"],
+        fit_results["Ed_epi_1"],
+        fit_results["b_epi_1"],
+        fit_results["beta_epi_1"],
+        data["E"],
+    )
+
+    flux_tof_epi_converted = flux_tof_epi * jacobian
+
+    r2_tof_epi_conv_1 = calculate_r_squared(
+        data["flux_E"][mask_E],
+        flux_tof_epi_converted[mask_E],
+    )
+
+    r2_tof_epi_conv_2 = calculate_r_squared(
+        data["flux_E2"][mask_E],
+        (flux_tof_epi_converted * data["E"])[mask_E],
+    )
+
+    # ------------------------------------------------------------------
+    # Analytical Maxwell + epithermal model in energy space
+    # ------------------------------------------------------------------
+    T_from_tof = fit_results["T_1_epi"]
+    Ed = fit_results["Ed_epi_1"]
+
+    b_manual = 0.27
+    beta_manual = 1.921
+
+    b_corr_manual = 0.5
+    beta_corr_manual = 1.921
+
+    # ----- Flux(E)
+
+    E_peak_1 = 1 / fit_results["a1_epi_1"]
+
+    height_1 = (
+        a0_best_1
+        * E_peak_1
+        * np.exp(-a1_best_1 * E_peak_1)
+    )
+
+    a0_epi_energy_1 = height_1 / E_peak_1
+    a1_epi_energy_1 = 1 / (k_b / eV * T_from_tof)
+
+    shape_1 = (
+        (1 - np.exp(-(data["E"][mask_epi] / Ed) ** 2))
+        * data["E"][mask_epi] ** (b_manual - 1)
+        * np.exp(-data["E"][mask_epi] / beta_manual)
+    )
+
+    a2_epi_energy_1 = np.mean(
+        data["flux_E"][mask_epi] / shape_1
+    )
+
+    flux_modele_1_epi = maxwell_epi_analytique_E(
+        data["E"],
+        a0_epi_energy_1,
+        a1_epi_energy_1,
+        a2_epi_energy_1,
+        Ed,
+        b_manual,
+        beta_manual,
+    )
+
+    # ----- Flux(E) × E
+
+    E_peak_2 = 2 / fit_results["a1_epi_1"]
+
+    height_2 = (
+        a0_best_2
+        * E_peak_2**2
+        * np.exp(-a1_best_2 * E_peak_2)
+    )
+
+    a0_epi_energy_2 = height_2 / E_peak_2**2
+    a1_epi_energy_2 = 1 / (k_b / eV * T_from_tof)
+
+    shape_2 = (
+        (1 - np.exp(-(data["E"][mask_epi] / Ed) ** 2))
+        * data["E"][mask_epi] ** b_corr_manual
+        * np.exp(-data["E"][mask_epi] / beta_corr_manual)
+    )
+
+    a2_epi_energy_2 = np.mean(
+        data["flux_E2"][mask_epi] / shape_2
+    )
+
+    flux_modele_2_epi = maxwell_epi_analytique_E_corr(
+        data["E"],
+        a0_epi_energy_2,
+        a1_epi_energy_2,
+        a2_epi_energy_2,
+        Ed,
+        b_corr_manual,
+        beta_corr_manual,
+    )
+
+    # ------------------------------------------------------------------
+    # Return everything required by plot_8()
+    # ------------------------------------------------------------------
+    return {
+    "E": data["E"],
+    "mask": mask_E,
+    "mask_epi": mask_epi,
+
+    "flux": {
+        "experimental": data["flux_E"],
+        "uncertainty": data["unc_E"],
+
+        "temperature": T_1,
+
+        "scores": {
+            "maxwell": r_squared_1,
+            "tof": r2_tof_conv_1,
+            "tof_epi": r2_tof_epi_conv_1,
+        },
+
+        "maxwell": flux_modele_1,
+        "tof": flux_tof_pure_converted,
+        "tof_epi": flux_tof_epi_converted,
+        "epi": flux_modele_1_epi,
+    },
+
+    "fluxE": {
+        "experimental": data["flux_E2"],
+        "uncertainty": data["unc_E2"],
+
+        "temperature": T_2,
+
+        "scores": {
+            "maxwell": r_squared_2,
+            "tof": r2_tof_conv_2,
+            "tof_epi": r2_tof_epi_conv_2,
+        },
+
+        "maxwell": flux_modele_2,
+        "tof": flux_tof_pure_converted * data["E"],
+        "tof_epi": flux_tof_epi_converted * data["E"],
+        "epi": flux_modele_2_epi,
+    },
+}
 
 def fit_maxwellian_grid_search(ToF, flux, path_length):
     """Determines the best temperature by least squares (increments of 5K)."""
@@ -395,73 +617,445 @@ def transmission_coeff(flux_sample, flux0):
 def cross_section(Tr, d, n):
     return -1/(n*d)*np.log(Tr)*1e24
 
+def integrate_thermal_epithermal_flux(t, flux_ToF):
+    """
+    Integrates the energy flux over physical ranges to compute 
+    thermal and epithermal integrated neutron flux values.
+    
+    Ranges (converted to eV):
+      - Thermal: 3 meV to 500 meV (0.003 eV to 0.5 eV)
+      - Epithermal: 500 meV to 1 MeV (0.5 eV to 1,000,000 eV)
+    """
+    # Define physical boundary limits in eV
+    e_min_th = 0.003
+    t_max_th = 2505e-6
+    e_boundary = 0.5
+    t_boundary = 194e-6
+    e_max_epi = 1e6
+    t_min_epi = 0.14e-6
+
+    t_pulse = 153e-6
+    surf_pulse = (3+1)*0.1/2 * 1 #surface of a trapeze (1mm ascent + 1mm constante + 1mm descent with (slit 1mm) per 10mm length)
+
+    # --- 1. Thermal Flux Integration ---
+    thermal_mask = (t >= t_boundary) & (t <= t_max_th)
+    t_thermal = t[thermal_mask]
+    flux_thermal = flux_ToF
+    
+    if len(flux_thermal) > 0:
+        integrated_thermal = np.sum(flux_thermal)
+    else:
+        integrated_thermal = 0.0
+
+    # --- 2. Epithermal Flux Integration ---
+    epithermal_mask = (t >= t_min_epi) & (t < t_boundary)
+    t_epithermal = t[epithermal_mask]
+    flux_epithermal = flux_ToF[epithermal_mask]
+    
+    if len(flux_epithermal) > 0:
+        integrated_epithermal = np.sum(flux_epithermal)
+    else:
+        integrated_epithermal = 0.0
+
+    return integrated_thermal / t_pulse / surf_pulse  , integrated_epithermal/ t_pulse / surf_pulse
+
 
 def process_neutron_data(fichier):
-    """Execute the entire processing pipeline for a given file."""
-    # 1. File loading and metadata
+
+    """
+    Execute the entire processing pipeline for a given file.
+    
+    """
+
+    cache_file = get_cache_path(fichier)
+
+    # -------------------------------------------------------
+    # Try to load cache
+    # -------------------------------------------------------
+    if cache_is_valid(fichier, cache_file):
+
+        data = load_cache(cache_file)
+
+        if data.get("cache_version") == CACHE_VERSION:
+            return data
+        
+    
+    # ==========================================================
+    # 1. Load data
+    # ==========================================================
+
     meta = load_metadata(fichier)
-    channels, counts = np.loadtxt(fichier, skiprows=15, unpack=True)
-    
-    # 2. Corrections primaires (Temps mort, bruit de fond)
-    counts_dt = apply_dead_time_correction(counts, meta['dead_time'], meta['nbr_frames'], meta['channel_width'])
-    counts_bg_corr = remove_background(counts_dt)
-    
+
+    channels, counts = np.loadtxt(
+        fichier,
+        skiprows=15,
+        unpack=True
+    )
+
+    unc_counts = np.sqrt(counts)
+
+
+    # ==========================================================
+    # 2. Dead-time correction
+    # ==========================================================
+
+    counts_dt = apply_dead_time_correction(
+        counts,
+        meta["dead_time"],
+        meta["nbr_frames"],
+        meta["channel_width"]
+    )
+
+
+    # ==========================================================
+    # 3. Background correction
+    # ==========================================================
+
+    counts_bg = remove_background(counts_dt)
+
     therm_counts = remove_background(counts)
-    
-    # Normalisation par pulses et incertitudes
-    flux_normalise = counts_bg_corr / meta['nbr_frames']
-    therm_norm_flux = therm_counts / meta['nbr_frames']
-    unc_normalisee = np.sqrt(counts) / meta['nbr_frames']
-    
-    # 3. Calculate time kinetics (ToF)
-    ToF = (meta['channel_width'] * channels * 1e-6) - ED
-    
-    # 4. Smoothing and efficiency correction (Time Domain)
-    flux_lisse = apply_grouping_methode1(flux_normalise)
-    mean_therm_norm_flux = apply_grouping_methode1(therm_norm_flux)
-    eff_ToF = compute_efficiency_tof(ToF, meta['path_length'])
-    flux_tof_ungrouped = flux_normalise / eff_ToF
-    flux_final_tof = flux_lisse / eff_ToF
-    unc_flux_reelle = unc_normalisee / eff_ToF
-    
-    # 5. Grouping method 2 (Packets of 10)
-    flux_grouped = apply_grouping_methode2(flux_normalise)
-    channels_grouped = apply_grouping_methode2(channels)
-    ToF_grouped = apply_grouping_methode2(ToF)
-    unc_grouped = apply_grouping_methode2(unc_normalisee) / np.sqrt(10)
-    
-    flux_tof_grouped = apply_grouping_methode2(flux_final_tof)
-    
-    # 6. Change of variable to Energy Domain
-    E, flux_E, flux_E2, unc_E, unc_E2= convert_to_energy_scale(flux_final_tof, ToF, meta['path_length'], unc_normalisee)
+
+
+    # ==========================================================
+    # 4. Pulse normalization
+    # ==========================================================
+
+    flux_raw = counts
+
+    flux_deadtime = counts_dt / meta["nbr_frames"]
+
+    flux_background = counts_bg / meta["nbr_frames"]
+
+    flux_thermal = therm_counts / meta["nbr_frames"]
+
+    unc_raw = unc_counts
+    unc_raw_norm = unc_counts / meta["nbr_frames"]
+
+
+    unc_deadtime = apply_dead_time_correction(
+        unc_raw_norm,
+        meta["dead_time"],
+        meta["nbr_frames"],
+        meta["channel_width"]
+    )
+
+
+    # Background subtraction does not modify statistical uncertainty
+    unc_background = unc_deadtime.copy()
+
+
+    # ==========================================================
+    # 5. Time of flight axis
+    # ==========================================================
+
+    ToF = (
+        meta["channel_width"] * channels * 1e-6
+    ) - ED
+
+
+    # ==========================================================
+    # 6. Detector efficiency correction
+    # ==========================================================
+
+    eff_ToF = compute_efficiency_tof(
+        ToF,
+        meta["path_length"]
+    )
+
+    flux_efficiency = flux_background / eff_ToF
+
+    unc_efficiency = unc_background / eff_ToF
+
+
+    # ==========================================================
+    # 7. Grouping method 1
+    # ==========================================================
+
+    flux_raw_m1 = apply_grouping_methode1(flux_raw)
+
+    flux_deadtime_m1 = apply_grouping_methode1(flux_deadtime)
+
+    flux_background_m1 = apply_grouping_methode1(flux_background)
+
+    flux_efficiency_m1 = apply_grouping_methode1(flux_efficiency)
+
+    flux_thermal_m1 = apply_grouping_methode1(flux_thermal)
+
+
+    unc_efficiency_m1 = apply_grouping_methode1(
+        unc_efficiency
+    )
+
+
+    # ==========================================================
+    # 8. Grouping method 2
+    # ==========================================================
+
+    ToF_m2 = apply_grouping_methode2(ToF)
+
+    channels_m2 = apply_grouping_methode2(channels)
+
+
+    flux_raw_m2 = apply_grouping_methode2(flux_raw)
+
+    flux_deadtime_m2 = apply_grouping_methode2(flux_deadtime)
+
+    flux_background_m2 = apply_grouping_methode2(flux_background)
+
+    flux_efficiency_m2 = apply_grouping_methode2(flux_efficiency)
+
+    unc_raw_m2 = apply_grouping_methode2(unc_raw)
+    unc_deadtime_m2 = apply_grouping_methode2(unc_deadtime)
+    unc_efficiency_m2 = (
+        apply_grouping_methode2(unc_efficiency)
+        / np.sqrt(10)
+    )
+
+
+    # ==========================================================
+    # 9. Energy conversion
+    # ==========================================================
+
+    E, flux_E, flux_E2, unc_E, unc_E2 = convert_to_energy_scale(
+        flux_efficiency_m1,
+        ToF,
+        meta["path_length"],
+        unc_efficiency_m1
+    )
     eff_E = compute_efficiency_energy(E)
-    
-    # Clean output dictionary
-    return {
-        'meta': meta,
-        'channels': channels,
-        'channels_grouped': channels_grouped,
-        'ToF': ToF,
-        'ToF_grouped': ToF_grouped,
-        'flux_normalise': flux_normalise,
-        'flux_lisse': flux_lisse,
-        'mean_therm_norm_flux': mean_therm_norm_flux,
-        'flux_grouped': flux_grouped,
-        'flux_tof_ungrouped':flux_tof_ungrouped,
-        'flux_tof': flux_final_tof,
-        'flux_tof_grouped': flux_tof_grouped,
-        'unc_tof': unc_normalisee,
-        'unc_tof_grouped': unc_grouped,
-        'unc_flux_reelle':unc_flux_reelle,
-        'E': E,
-        'eff_E': eff_E,
-        'eff_ToF': eff_ToF,
-        'flux_E': flux_E,
-        'flux_E2': flux_E2,
-        'unc_E': unc_E,
-        'unc_E2': unc_E2
+
+    # ==========================================================
+    # 10. Compatibility aliases
+    # ==========================================================
+
+    flux_corrected = flux_efficiency
+
+    flux_corrected_m1 = flux_efficiency_m1
+
+    flux_corrected_m2 = flux_efficiency_m2
+
+
+    unc_corrected = unc_efficiency
+
+
+    tof_flux = {
+
+        "raw": {
+
+            "no_grouping": {
+                "ToF": ToF,
+                "flux": flux_raw,
+                "unc": unc_raw,
+            },
+
+            "method1": {
+                "ToF": ToF,
+                "flux": flux_raw_m1,
+                "unc": unc_raw,
+            },
+
+            "method2": {
+                "ToF": ToF_m2,
+                "flux": flux_raw_m2,
+                "unc": unc_raw_m2,
+            },
+        },
+
+
+        "deadtime": {
+
+            "no_grouping": {
+                "ToF": ToF,
+                "flux": flux_deadtime,
+                "unc": unc_deadtime,
+            },
+
+            "method1": {
+                "ToF": ToF,
+                "flux": flux_deadtime_m1,
+                "unc": unc_deadtime,
+            },
+
+            "method2": {
+                "ToF": ToF_m2,
+                "flux": flux_deadtime_m2,
+                "unc": unc_deadtime_m2,
+            },
+        },
+
+
+        "background": {
+
+            "no_grouping": {
+                "ToF": ToF,
+                "flux": flux_background,
+                "unc": unc_background,
+            },
+
+            "method1": {
+                "ToF": ToF,
+                "flux": flux_background_m1,
+                "unc": unc_deadtime,
+            },
+
+            "method2": {
+                "ToF": ToF_m2,
+                "flux": flux_background_m2,
+                "unc": unc_deadtime_m2,
+            },
+        },
+
+
+        # Alias pour le flux physique corrigé
+        "all": {
+
+            "no_grouping": {
+                "ToF": ToF,
+                "flux": flux_corrected,
+                "unc": unc_corrected,
+            },
+
+            "method1": {
+                "ToF": ToF,
+                "flux": flux_corrected_m1,
+                "unc": unc_efficiency_m1,
+            },
+
+            "method2": {
+                "ToF": ToF_m2,
+                "flux": flux_corrected_m2,
+                "unc": unc_efficiency_m2,
+            },
+        },
     }
 
+    result = {
+
+        "cache_version": CACHE_VERSION,
+
+        # ======================================================
+        # Metadata
+        # ======================================================
+
+        "meta": meta,
+
+
+        # ======================================================
+        # Raw detector data
+        # ======================================================
+
+        "counts": counts,
+
+        "unc_counts": unc_counts,
+
+        "channels": channels,
+
+
+        # ======================================================
+        # ToF axes
+        # ======================================================
+
+        "ToF": ToF,
+
+        "ToF_grouped": ToF_m2,
+
+        "channels_grouped": channels_m2,
+
+        "channels_m2": channels_m2,
+
+
+        # ======================================================
+        # Flux intermediate
+        # ======================================================
+
+        "flux_raw": flux_raw,
+
+        "flux_deadtime": flux_deadtime,
+
+        "flux_background": flux_background,
+
+        "flux_corrected": flux_corrected,
+
+
+        # Old compatibility names
+
+        "flux_normalise": flux_background,
+
+        "flux_lisse": flux_background_m1,
+
+        "mean_therm_norm_flux": flux_thermal_m1,
+
+        "flux_grouped": flux_background_m2,
+
+
+        # ======================================================
+        # ToF flux
+        # ======================================================
+
+        "flux_tof_ungrouped": flux_corrected,
+
+        "flux_tof": flux_corrected_m1,
+
+        "flux_tof_grouped": flux_corrected_m2,
+
+
+        # ======================================================
+        # Uncertainties
+        # ======================================================
+
+        "unc_raw": unc_raw,
+
+        "unc_deadtime": unc_deadtime,
+
+        "unc_background": unc_background,
+
+        "unc_corrected": unc_corrected,
+
+
+        # Compatibility
+
+        "unc_tof_norm": unc_deadtime,
+
+        "unc_tof": unc_deadtime,
+
+        "unc_tof_grouped": unc_efficiency_m2,
+
+        "unc_flux_reelle": unc_corrected,
+
+
+        # ======================================================
+        # Detector efficiency
+        # ======================================================
+
+        "eff_ToF": eff_ToF,
+        "eff_E":eff_E,
+
+
+        # ======================================================
+        # Energy domain
+        # ======================================================
+
+        "E": E,
+
+        "flux_E": flux_E,
+
+        "flux_E2": flux_E2,
+
+        "unc_E": unc_E,
+
+        "unc_E2": unc_E2,
+
+
+        # ======================================================
+        # Structured ToF database
+        # ======================================================
+
+        "tof_flux": tof_flux,
+    }
+
+    save_cache(cache_file, result)
+
+    return result
 
 Temp_K = np.arange(260,400,5)
 N_temp = len(Temp_K)
