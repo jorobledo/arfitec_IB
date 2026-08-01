@@ -18,6 +18,12 @@ Typical use:
 - Compare different acquisitions.
 - Prepare data for fitting procedures.
 
+### Example on usage:
+
+1. load file `cu250626_1_grp_grp.dat`.
+2. Select the file by clicking it in the `Loaded Files` section.
+3. Finally, in the `Flux` box on the left, press `ToF Flux` to see the ToF visualization of the flux.
+
 ---
 
 ## Energy Flux
@@ -46,6 +52,13 @@ Compares spectra obtained using different grouping factors.
 Purpose:
 - Evaluate the influence of binning on statistical fluctuations.
 - Check that grouping does not alter the physical spectrum.
+
+
+### Example on usage:
+To test this feature, load file `example.txt`.  In the `Anaysis` box:
+
+    - Select Analysis -> Time of Flight (ToF) Experiment -> 1. Grouping Comparison
+
 
 ---
 
