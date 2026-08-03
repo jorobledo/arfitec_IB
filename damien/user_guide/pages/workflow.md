@@ -128,3 +128,8 @@ A common workflow is:
 - Energy spectrum plots require previously computed fit parameters.
 - Cross-section analyses require one or more reference datasets.
 - The **Clear** button resets the current figure without unloading the datasets.
+- For the shielding visualisation, it is necessary to rename your file as follow :
+    - xmm_date_element.dat with x for thickness
+    - y%_date_element.dat with y for concentration
+    - tl_name.dat for the reference file (no shielding)
+    - bg_name.dat for the background file (to correct the other spectrums)
