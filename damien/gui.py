@@ -2374,17 +2374,23 @@ class NeutronApp:
             return
 
         ax = self.current_fig.axes[0]
-
-        # Apply logarithmic scales
-        if self.show_logx_var.get():
-            ax.set_xscale("log")
-        else:
-            ax.set_xscale("linear")
-
+    
+        ax.set_xscale("log" if self.show_logx_var.get() else "linear")
         if self.show_logy_var.get():
+
+            # Remove invalid lower limit for logarithmic scale
+            ymin, ymax = ax.get_ylim()
+
+            if ymin <= 0:
+                ymin = np.min([
+                    line.get_ydata().min()
+                    for line in ax.get_lines()
+                    if np.all(line.get_ydata() > 0)
+                ])
+
+            ax.set_ylim(ymin, ymax)
             ax.set_yscale("log")
-            ax.relim()
-            ax.autoscale_view()
+
         else:
             ax.set_yscale("linear")
 
