@@ -83,9 +83,9 @@ class NeutronApp:
         # 3. "Help" Dropdown Menu
         menu_help = Menu(barre_menu, tearoff=0)
         barre_menu.add_cascade(label="Help", menu=menu_help)
-        menu_help.add_command(label="User Guide", command=self.show_user_guide)
-        menu_help.add_command(label="Recommended Workflow",command=self.show_workflow)
-        menu_help.add_command(label="Plot Reference",command=self.show_plot_reference)
+        # menu_help.add_command(label="User Guide", command=self.show_user_guide)
+        # menu_help.add_command(label="Recommended Workflow",command=self.show_workflow)
+        # menu_help.add_command(label="Plot Reference",command=self.show_plot_reference)
         menu_help.add_separator()
         menu_help.add_command(label="About",command=self.show_about)
         
@@ -650,6 +650,8 @@ class NeutronApp:
         self.show_tof_epi_var = tk.BooleanVar(value=True)
         self.show_epi_var = tk.BooleanVar(value=False)
 
+        self.show_theo_transmission_var = tk.BooleanVar(value=False)
+
         self.display_frame = tk.LabelFrame(
             self.control_frame,
             text="Display Options",
@@ -965,6 +967,17 @@ class NeutronApp:
             padx=10,
             pady=5
         )
+
+        tk.Checkbutton(
+            self.comparison_frame,
+            text="Theoretical Model",
+            variable=self.show_theo_transmission_var,
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT
+        ).pack(anchor="w")
             
 
         # LEFT PANEL: COMPACT AND DISTINCT ACTIONS
@@ -2362,8 +2375,18 @@ class NeutronApp:
 
         ax = self.current_fig.axes[0]
 
-        ax.set_xscale("log" if self.show_logx_var.get() else "linear")
-        ax.set_yscale("log" if self.show_logy_var.get() else "linear")
+        # Apply logarithmic scales
+        if self.show_logx_var.get():
+            ax.set_xscale("log")
+        else:
+            ax.set_xscale("linear")
+
+        if self.show_logy_var.get():
+            ax.set_yscale("log")
+            ax.relim()
+            ax.autoscale_view()
+        else:
+            ax.set_yscale("linear")
 
         self.current_fig.canvas.draw_idle()       
 
@@ -2511,6 +2534,10 @@ class NeutronApp:
                 "show_tof": self.show_tof_var.get(),
                 "show_tof_epi": self.show_tof_epi_var.get(),
                 "show_epi": self.show_epi_var.get(),
+            })
+        if self.current_plot_id in ["shielding_4"]:
+            kwargs.update({
+                "show_theo_transmission": self.show_theo_transmission_var.get()
             })
 
         return kwargs
@@ -2741,7 +2768,8 @@ class NeutronApp:
                         fichiers,
                         self.datasets,
                         comparison_points=self.comparison_points,
-                        **base_kwargs
+                        frame = self.plot_frame,
+                        **self._get_plot_kwargs()
                     )
 
                 elif numero_plot == "shielding_5":
@@ -3134,14 +3162,14 @@ class NeutronApp:
 
     
 
-    def show_user_guide(self):
-        self._show_markdown_file("User Guide", "user_guide.md")
+    # def show_user_guide(self):
+    #     self._show_markdown_file("User Guide", "user_guide.md")
         
-    def show_workflow(self):
-        self._show_markdown_file("Workflow", "work_flow.md")
+    # def show_workflow(self):
+    #     self._show_markdown_file("Workflow", "work_flow.md")
 
-    def show_plot_reference(self):
-        self._show_markdown_file("Plot Reference", "plot_reference.md")
+    # def show_plot_reference(self):
+    #     self._show_markdown_file("Plot Reference", "pages/plot_reference.md")
 
     def show_about(self):
         self._show_markdown_file("About", "about.md")
