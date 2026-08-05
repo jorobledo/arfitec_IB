@@ -1,6 +1,52 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
+# ------------------------------------------------------
+# Composition data
+# ------------------------------------------------------
+
+composition_data = {
+    5.0: {
+        "fract_mol": (
+            0.2269124769,
+            0.0001784510163,
+            0.03083388815,
+            0.009066216415
+        ),
+        "atomic_density": 1.54674E+21
+    },
+
+    10.0: {
+        "fract_mol": (
+            0.3825795835,
+            0.002749083623,
+            0.4750039463,
+            0.1396673866
+        ),
+        "atomic_density": 2.09464E+21
+    },
+
+    20.0: {
+        "fract_mol": (
+            0.5823229657,
+            0.00015027454,
+            0.02596537949,
+            0.00763470856
+        ),
+        "atomic_density": 3.01085E+21
+    },
+
+    25.0: {
+        "fract_mol": (
+            0.650218276,
+            0.001557414014,
+            0.2690997816,
+            0.07912452836
+        ),
+        "atomic_density": 3.54494e21
+    }
+}
+
 
 # ==========================================================
 # Cross section loading
@@ -29,6 +75,10 @@ def compute_sigma_mix(
     sigma_H,
     sigma_O,
     sigma_Si,
+    f_B4C,
+    f_PDMS,
+    f_SiO2,
+    f_MTMS
 ):
     # sections efficaces des composés
 
@@ -82,7 +132,11 @@ def build_sigma_mix_from_files(
     file_C,
     file_H,
     file_O,
-    file_Si
+    file_Si,
+    f_B4C,
+    f_PDMS,
+    f_SiO2,
+    f_MTMS
 ):
     E_H, sigma_H = load_cross_section(file_H)
 
@@ -126,7 +180,11 @@ def build_sigma_mix_from_files(
         sigma_C,
         sigma_H,
         sigma_O,
-        sigma_Si
+        sigma_Si,
+        f_B4C,
+        f_PDMS,
+        f_SiO2,
+        f_MTMS
     )
 
     return E_common, sigma_mix

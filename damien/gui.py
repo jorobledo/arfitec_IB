@@ -2750,7 +2750,8 @@ class NeutronApp:
                         fichiers,
                         self.datasets,
                         comparison_points=self.comparison_points,
-                        **base_kwargs
+                        frame = self.plot_frame,
+                        **self._get_plot_kwargs()
                     )
 
                 elif numero_plot == "shielding_2":
