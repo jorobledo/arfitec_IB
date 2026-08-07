@@ -7,7 +7,13 @@ import matplotlib.pyplot as plt
 from physics_NAA import PARAMS, get_R, get_flux, get_lambda, model_tof_epi_NAA
 from physics import integrate_thermal_epithermal_flux
 from plot import _integrer_canvas
+from physics_shielding import (
+    build_sigma_mix_from_files,
+    average_transmission,
+)
 from scipy.interpolate import interp1d
+from pathlib import Path
+from physics_shielding import composition_data
 
 
 def plot_max_peak_concentration(
@@ -130,7 +136,7 @@ def plot_max_peak_concentration(
 
     return fig
 
-def plot_transmission_concentration(fichiers, datasets, comparison_points=None, frame=None):
+def plot_transmission_concentration(fichiers, datasets, comparison_points=None, frame=None, **kwargs):
     """
     Plot the thermal neutron transmission as a function of B4C concentration.
 
@@ -421,6 +427,93 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
                     f"{element}: {e}"
                 )
 
+    # ==========================================================
+    # Theoretical transmission model
+    # ==========================================================
+    show_theo = kwargs.get("show_theo_transmission", True)
+    if show_theo :
+
+        # ------------------------------------------------------
+        # Cross section files
+        # ------------------------------------------------------
+        BASE_DIR = Path(__file__).parent
+
+        B_file  = BASE_DIR / "Shielding" / "set-tot" / "B" / "sig-tot-B.dat"
+        C_file  = BASE_DIR / "Shielding" / "set-tot" / "C" / "sig-tot-C.dat"
+        H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
+        O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.dat"
+        Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
+
+        # ------------------------------------------------------
+        # Experimental incident spectrum
+        # ------------------------------------------------------
+
+        E_flux = ref["E"]
+
+        flux_ref_energy = ref["flux_E"]
+
+        # Interpolation of the incident spectrum
+        flux_interp = interp1d(
+            E_flux,
+            flux_ref_energy,
+            bounds_error=False,
+            fill_value=0.0
+        )
+
+        # ------------------------------------------------------
+        # Compute theoretical transmission
+        # ------------------------------------------------------
+
+        T_theory = []
+
+        for concentration in concentrations[1:]:
+
+            data = composition_data[concentration]
+
+            fract_B4C, fract_PDMS, fract_SiO2, fract_MTMS = data["fract_mol"]
+
+            atomic_density = data["atomic_density"]
+
+            # Recompute sigma_mix for this concentration
+            E_mix, sigma_mix = build_sigma_mix_from_files(
+                B_file,
+                C_file,
+                H_file,
+                O_file,
+                Si_file,
+                fract_B4C,
+                fract_PDMS,
+                fract_SiO2,
+                fract_MTMS
+            )
+
+            # Interpolate incident spectrum on the new grid
+            flux_incident = flux_interp(E_mix)
+
+            # Compute transmission
+            T = average_transmission(
+                0.45,
+                E_mix,
+                sigma_mix,
+                flux_incident,
+                atomic_density=atomic_density
+            )
+
+            T_theory.append(T)
+
+        T_theory = np.array(T_theory)
+
+        ax.plot(
+            concentrations[1:],
+            T_theory,
+            "o--",
+            color="#E69F00",
+            markerfacecolor="white",
+            markeredgecolor="#E69F00",
+            linewidth=1.5,
+            label="Beer-Lambert model"
+        )
+
     ax.set_xlabel("B$_4$C concentration (%)")
     ax.set_ylabel("Thermal neutron transmission")
     ax.set_title("Thermal neutron transmission")
@@ -575,7 +668,7 @@ def plot_transmission_concentration_tof(fichiers, datasets, frame=None):
 
 
 
-def plot_transmission_thickness(fichiers, datasets, comparison_points=None, frame=None):
+def plot_transmission_thickness(fichiers, datasets, comparison_points=None, frame=None, **kwargs):
     """
     Plot thermal neutron transmission as a function of B4C thickness.
 
@@ -906,6 +999,87 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
                     f"Cannot determine intersection for "
                     f"{element}: {e}"
                 )
+
+    # ==========================================================
+    # Theoretical transmission model
+    # ==========================================================
+    show_theo = kwargs.get("show_theo_transmission", True)
+    if show_theo :
+
+        # ------------------------------------------------------
+        # Cross section files
+        # ------------------------------------------------------
+        BASE_DIR = Path(__file__).parent
+
+        B_file  = BASE_DIR / "Shielding" / "set-tot" / "B" / "sig-tot-B.dat"
+        C_file  = BASE_DIR / "Shielding" / "set-tot" / "C" / "sig-tot-C.dat"
+        H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
+        O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.dat"
+        Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
+
+        E_mix, sigma_mix = build_sigma_mix_from_files(
+            B_file,
+            C_file,
+            H_file,
+            O_file,
+            Si_file,
+            0.650218276,
+            0.001557414014,
+            0.2690997816,
+            0.07912452836
+        )
+
+        # ------------------------------------------------------
+        # Experimental incident spectrum
+        # ------------------------------------------------------
+
+        E_flux = ref["E"]
+
+        flux_ref_energy = ref["flux_E"]
+
+        # Interpolation of the incident spectrum
+        flux_interp = interp1d(
+            E_flux,
+            flux_ref_energy,
+            bounds_error=False,
+            fill_value=0.0
+        )
+
+        flux_incident = flux_interp(E_mix)
+
+        # ------------------------------------------------------
+        # Compute theoretical transmission
+        # ------------------------------------------------------
+
+        T_theory = []
+
+        for thickness_mm in thicknesses:
+
+            thickness_cm = thickness_mm / 10.0
+
+            T = average_transmission(
+                thickness_cm,
+                E_mix,
+                sigma_mix,
+                flux_incident,
+                atomic_density=3.54494e20
+            )
+
+            T_theory.append(T)
+
+        T_theory = np.array(T_theory)
+
+        ax.plot(
+            thicknesses,
+            T_theory,
+            "o--",
+            color="#E69F00",
+            markerfacecolor="white",
+            markeredgecolor="#E69F00",
+            linewidth=1.5,
+            label="Beer-Lambert model"
+        )
+
 
     ax.set_xlabel("B$_4$C thickness (mm)")
     ax.set_ylabel("Thermal neutron transmission")

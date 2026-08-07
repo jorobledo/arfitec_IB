@@ -6,6 +6,7 @@ from tkinter import filedialog
 from tkinter import messagebox
 from tkinter import Menu
 from pathlib import Path
+from PIL import Image, ImageTk
 import re
 import pickle
 
@@ -61,6 +62,8 @@ class NeutronApp:
         self.root.title("Neutron Spectrum Analysis (Chopper Experiment)")
         self.root.state("zoomed")
 
+        self.doc_window = None
+
         self.comparison_points = [] # used later for shielding experiment
         
         # --- MENU BAR CREATION ---
@@ -83,9 +86,9 @@ class NeutronApp:
         # 3. "Help" Dropdown Menu
         menu_help = Menu(barre_menu, tearoff=0)
         barre_menu.add_cascade(label="Help", menu=menu_help)
-        menu_help.add_command(label="User Guide", command=self.show_user_guide)
-        menu_help.add_command(label="Recommended Workflow",command=self.show_workflow)
-        menu_help.add_command(label="Plot Reference",command=self.show_plot_reference)
+        # menu_help.add_command(label="User Guide", command=self.show_user_guide)
+        # menu_help.add_command(label="Recommended Workflow",command=self.show_workflow)
+        # menu_help.add_command(label="Plot Reference",command=self.show_plot_reference)
         menu_help.add_separator()
         menu_help.add_command(label="About",command=self.show_about)
         
@@ -650,6 +653,8 @@ class NeutronApp:
         self.show_tof_epi_var = tk.BooleanVar(value=True)
         self.show_epi_var = tk.BooleanVar(value=False)
 
+        self.show_theo_transmission_var = tk.BooleanVar(value=False)
+
         self.display_frame = tk.LabelFrame(
             self.control_frame,
             text="Display Options",
@@ -965,6 +970,17 @@ class NeutronApp:
             padx=10,
             pady=5
         )
+
+        tk.Checkbutton(
+            self.comparison_frame,
+            text="Theoretical Model",
+            variable=self.show_theo_transmission_var,
+            bg=BG_DARK,
+            fg=TEXT_LIGHT,
+            selectcolor=BG_DARK,
+            activebackground=BG_DARK,
+            activeforeground=TEXT_LIGHT
+        ).pack(anchor="w")
             
 
         # LEFT PANEL: COMPACT AND DISTINCT ACTIONS
@@ -1333,6 +1349,7 @@ class NeutronApp:
             "default_logy": False,
             "display_limits": True,
             "plot8_options": False,
+            "tof_options":True,
         },
 
         "flux_energy": {
@@ -1340,6 +1357,7 @@ class NeutronApp:
             "default_logy": False,
             "display_limits": True,
             "plot8_options": False,
+            "E_options":True,
         },
 
         # --------------------------------------------------
@@ -1753,7 +1771,7 @@ class NeutronApp:
     def _process_plot_statistics(self, numero_plot, fichiers, choix):
         """Handles extraction, translation, and display of numerical data according to plot type."""
         # Default case if no results are expected
-        if numero_plot not in ["6", "7.1", "7.2", "8.1", "8.2"]:
+        if numero_plot not in ["6", "7.1", "7.2", "8"]:
             self.update_stats_display("No fit has been executed yet. Run a Maxwellian Fit to display numerical results here.")
             return
 
@@ -1798,13 +1816,62 @@ class NeutronApp:
                     summary += f"  -> {key_mapping.get(key, key)} : {val:.4f}\n"
 
         # --- Formatage pour les Plots 8.1 et 8.2 ---
-        elif numero_plot in ["8"]:
+        elif numero_plot == "8" and  self.plot8_results:
+
             summary += f" ENERGY SPECTRUM MODELING (Plot {numero_plot})\n"
             summary += "==================================================\n\n"
-            summary += f"Based on prior fit parameters from: {fichiers[0]}\n"
-            summary += "Plots display converted Time-of-Flight configurations into Energy scale (eV).\n"
-            summary += "Review 'Fit Results & Stats' tab parameters for exact scaling coefficients."
 
+            summary += f"Primary Analyzed File : {fichiers[0]}\n\n"
+
+            # --------------------------------------------------
+            # Select Flux(E) or Flux(E)×E results
+            # --------------------------------------------------
+            flux_model = (
+                self.plot8_results["fluxE"]
+                if self.show_fluxE_var.get()
+                else self.plot8_results["flux"]
+            )
+            summary += "Extracted Physical Parameters :\n\n"
+            summary += (
+                f"  -> Maxwellian Temperature : "
+                f"{flux_model['temperature']:.2f} K\n"
+            )
+            summary += (
+                f"  -> R² Maxwell Fit : "
+                f"{flux_model['scores']['maxwell']:.4f}\n"
+            )
+            summary += (
+                f"  -> R² ToF Converted : "
+                f"{flux_model['scores']['tof']:.4f}\n"
+            )
+            summary += (
+                f"  -> R² ToF + Epithermal : "
+                f"{flux_model['scores']['tof_epi']:.4f}\n"
+            )
+            summary += "\nDisplayed Components :\n"
+            summary += (
+                f"  -> Experimental Spectrum : Yes\n"
+            )
+            summary += (
+                f"  -> Maxwell Fit : "
+                f"{'Yes' if self.show_maxwell_var.get() else 'No'}\n"
+            )
+            summary += (
+                f"  -> ToF Converted : "
+                f"{'Yes' if self.show_tof_var.get() else 'No'}\n"
+            )
+            summary += (
+                f"  -> ToF + Epithermal : "
+                f"{'Yes' if self.show_tof_epi_var.get() else 'No'}\n"
+            )
+            summary += (
+                f"  -> Analytical Epithermal : "
+                f"{'Yes' if self.show_epi_var.get() else 'No'}\n"
+            )
+            summary += (
+                f"\nDisplayed Quantity : "
+                f"{'Flux(E) × E' if self.show_fluxE_var.get() else 'Flux(E)'}\n"
+            )
         # Envoi final vers le widget de l'IHM
         self.update_stats_display(summary)
 
@@ -2005,6 +2072,32 @@ class NeutronApp:
             )
         else:
             self.limits_frame.pack_forget()
+
+        # --------------------------------------------------
+        # Tof options display
+        # --------------------------------------------------
+
+        if cfg.get("tof_options", False):
+            self.flux_tof_frame.pack(
+                padx=12,
+                pady=(2, 8),
+                fill="x"
+            )
+        else:
+            self.flux_tof_frame.pack_forget()
+
+        # --------------------------------------------------
+        # E options display
+        # --------------------------------------------------
+
+        if cfg.get("E_options", False):
+            self.flux_E_frame.pack(
+                padx=12,
+                pady=(2, 8),
+                fill="x"
+            )
+        else:
+            self.flux_E_frame.pack_forget()
 
         # --------------------------------------------------
         # Comparison points
@@ -2284,9 +2377,25 @@ class NeutronApp:
             return
 
         ax = self.current_fig.axes[0]
-
+    
         ax.set_xscale("log" if self.show_logx_var.get() else "linear")
-        ax.set_yscale("log" if self.show_logy_var.get() else "linear")
+        if self.show_logy_var.get():
+
+            # Remove invalid lower limit for logarithmic scale
+            ymin, ymax = ax.get_ylim()
+
+            if ymin <= 0:
+                ymin = np.min([
+                    line.get_ydata().min()
+                    for line in ax.get_lines()
+                    if np.all(line.get_ydata() > 0)
+                ])
+
+            ax.set_ylim(ymin, ymax)
+            ax.set_yscale("log")
+
+        else:
+            ax.set_yscale("linear")
 
         self.current_fig.canvas.draw_idle()       
 
@@ -2422,6 +2531,11 @@ class NeutronApp:
                 "grouping_method": self.grouping_method_var.get(),
             })
 
+        if self.current_plot_id.startswith("flux_energy"):  
+            kwargs.update({
+                "show_fluxE": self.show_fluxE_var.get(),
+            })
+
         if self.current_plot_id.startswith("8"):
             kwargs.update({
                 "show_fluxE": self.show_fluxE_var.get(),
@@ -2429,6 +2543,10 @@ class NeutronApp:
                 "show_tof": self.show_tof_var.get(),
                 "show_tof_epi": self.show_tof_epi_var.get(),
                 "show_epi": self.show_epi_var.get(),
+            })
+        if self.current_plot_id in ["shielding_4", "shielding_1"]:
+            kwargs.update({
+                "show_theo_transmission": self.show_theo_transmission_var.get()
             })
 
         return kwargs
@@ -2635,7 +2753,8 @@ class NeutronApp:
                         fichiers,
                         self.datasets,
                         comparison_points=self.comparison_points,
-                        **base_kwargs
+                        frame = self.plot_frame,
+                        **self._get_plot_kwargs()
                     )
 
                 elif numero_plot == "shielding_2":
@@ -2659,7 +2778,8 @@ class NeutronApp:
                         fichiers,
                         self.datasets,
                         comparison_points=self.comparison_points,
-                        **base_kwargs
+                        frame = self.plot_frame,
+                        **self._get_plot_kwargs()
                     )
 
                 elif numero_plot == "shielding_5":
@@ -2750,43 +2870,6 @@ class NeutronApp:
                     **base_kwargs
                 )
 
-                from physics import fit_maxwellian_grid_search
-
-                summary = "==================================================\n"
-                summary += " GRID SEARCH MAXWELLIAN FIT RESULTS\n"
-                summary += "==================================================\n\n"
-
-                for nom in fichiers:
-
-                    data = self.datasets[nom]
-
-                    mask = (
-                        (data["ToF"] >= PARAMS["t_min"])
-                        &
-                        (data["ToF"] <= PARAMS["t_max"])
-                    )
-
-                    ToF_fit = data["ToF"][mask]
-                    flux_fit = data["flux_tof"][mask]
-
-                    T_best, erreur_min = fit_maxwellian_grid_search(
-                        ToF_fit,
-                        flux_fit,
-                        data["meta"]["path_length"]
-                    )
-
-                    summary += f"Dataset File : {nom}\n"
-                    summary += f"  -> Best Fit Temperature : {T_best:.2f} K\n"
-                    summary += f"  -> Minimum Residual Error : {erreur_min:.2e}\n"
-                    summary += (
-                        f"  -> Active Time Range : "
-                        f"{PARAMS['t_min']*1e6:.1f} "
-                        f"to "
-                        f"{PARAMS['t_max']*1e6:.1f} µs\n\n"
-                    )
-
-                self.update_stats_display(summary)
-
             # ==========================================================
             # PLOT 7
             # ==========================================================
@@ -2800,66 +2883,6 @@ class NeutronApp:
                     **base_kwargs
                 )
 
-                if self.fit_results:
-
-                    summary = "==================================================\n"
-                    summary += f" ADVANCED CURVE FIT RESULTS (Plot {numero_plot})\n"
-                    summary += "==================================================\n\n"
-
-                    summary += f"Primary Analyzed File : {fichiers[0]}\n\n"
-
-                    summary += (
-                        "Extracted Physical Constants & Parameters :\n"
-                    )
-
-                    key_mapping = {
-
-                        "T_1":
-                            "Pure Maxwellian Temperature (T1)",
-
-                        "T_1_epi":
-                            "Maxwellian + Epithermal Temperature (T1_epi)",
-
-                        "r_squared_1":
-                            "R² Coefficient (Pure Maxwellian)",
-
-                        "r_squared_2":
-                            "R² Coefficient (Grouped Maxwellian)",
-
-                        "r_squared_1_epi":
-                            "R² Coefficient (Maxwellian + Epithermal)",
-
-                        "a1_tof_pure_1":
-                            "Amplitude Factor a1 (Model 1)",
-
-                        "a1_tof_pure_2":
-                            "Amplitude Factor a1 (Model 2)",
-
-                        "Ed_epi_1":
-                            "Epithermal Cutoff Energy (Ed)",
-
-                        "b_epi_1":
-                            "Epithermal Parameter b",
-
-                        "beta_epi_1":
-                            "Epithermal Parameter beta"
-
-                    }
-
-                    for key, val in self.fit_results.items():
-
-                        if isinstance(
-                            val,
-                            (int, float, np.float64, np.int64)
-                        ):
-
-                            label_en = key_mapping.get(key, key)
-
-                            summary += (
-                                f"  -> {label_en} : {val:.4f}\n"
-                            )
-
-                    self.update_stats_display(summary)
 
             # ==========================================================
             # PLOT 8
@@ -2868,35 +2891,12 @@ class NeutronApp:
             elif numero_plot in ["8"]:
 
                 self.show_plot8_controls()
-                self.current_fig = pt.plot_8(
+                self.current_fig, self.plot8_results = pt.plot_8(
                     fichiers,
                     self.datasets,
                     frame=self.plot_frame,
                     **self._get_plot_kwargs()
                 )
-
-                summary = "==================================================\n"
-                summary += (
-                    f" ENERGY SPECTRUM MODELING (Plot {numero_plot})\n"
-                )
-                summary += "==================================================\n\n"
-
-                summary += (
-                    f"Based on prior fit parameters from : "
-                    f"{fichiers[0]}\n\n"
-                )
-
-                summary += (
-                    "Plots display converted Time-of-Flight "
-                    "configurations into Energy scale (eV).\n"
-                )
-
-                summary += (
-                    "Review 'Fit Results & Stats' tab "
-                    "parameters for exact scaling coefficients."
-                )
-
-                self.update_stats_display(summary)
 
             # ==========================================================
             # COMMON POST PROCESSING
@@ -2966,20 +2966,76 @@ class NeutronApp:
         self.current_fig = pt.plot_flux_energy(
             fichiers,
             self.datasets,
-            **base_kwargs
+            frame = self.plot_frame,
+            **self._get_plot_kwargs()
         )
 
         self._apply_display_options()
         if not refresh:
             self._finalize_plot_execution(numero_plot="Energy_Flux", fichiers=fichiers, choix="Energy-Flux")
 
-    
+    def _open_doc_link(self, current_file, target):
+        """
+        Open a markdown page from a relative link.
+        """
+
+        self.doc_history = []
+        self.doc_forward = []
+
+        base_dir = (
+            Path(__file__).parent
+            / "user_guide"
+        )
+
+        current_path = base_dir / current_file
+
+        target_path = (
+            current_path.parent
+            / target
+        ).resolve()
+
+        try:
+            relative_target = str(
+                target_path.relative_to(base_dir)
+            )
+
+        except ValueError:
+            messagebox.showerror(
+                "Documentation Error",
+                f"Invalid link:\n{target}"
+            )
+            return
+
+        self.doc_history.append(current_file)
+        self.doc_forward.clear()
+
+        self._show_markdown_file(
+            Path(relative_target).stem,
+            relative_target
+        )
+
+    def _doc_back(self):
+
+        if not self.doc_history:
+            return
+
+        previous = self.doc_history.pop()
+
+        self._show_markdown_file(
+            Path(previous).stem,
+            previous
+        )
+
     def _show_markdown_file(self, title, filename):
         """
         Display a Markdown help file in a read-only window.
         """
 
-        filepath = Path(__file__).parent / "user_guide" / filename
+        filepath = (
+            Path(__file__).parent
+            / "user_guide"
+            / filename
+        )
 
         try:
             with open(filepath, "r", encoding="utf-8") as f:
@@ -2996,9 +3052,25 @@ class NeutronApp:
         # Window
         # ==========================
 
-        window = tk.Toplevel(self.root)
+        if self.doc_window is not None:
+            self.doc_window.destroy()
+
+        self.doc_window = tk.Toplevel(self.root)
+        window = self.doc_window
         window.title(title)
         window.geometry("900x700")
+
+        toolbar = tk.Frame(window)
+        toolbar.pack(fill="x")
+        tk.Button(
+            toolbar,
+            text="← Back",
+            command=self._doc_back
+        ).pack(
+            side="left",
+            padx=5,
+            pady=5
+        )
 
         txt = tk.Text(
             window,
@@ -3006,15 +3078,26 @@ class NeutronApp:
             font=("Segoe UI", 10)
         )
 
+        txt.image_refs = []
+
         scrollbar = tk.Scrollbar(
             window,
             command=txt.yview
         )
 
-        txt.configure(yscrollcommand=scrollbar.set)
+        txt.configure(
+            yscrollcommand=scrollbar.set
+        )
 
-        scrollbar.pack(side="right", fill="y")
-        txt.pack(fill="both", expand=True)
+        scrollbar.pack(
+            side="right",
+            fill="y"
+        )
+
+        txt.pack(
+            fill="both",
+            expand=True
+        )
 
         # ==========================
         # Styles
@@ -3057,43 +3140,46 @@ class NeutronApp:
             background="#f3f3f3"
         )
 
-        txt.tag_configure(
-            "bullet",
-            lmargin1=25,
-            lmargin2=45
-        )
-
-        txt.tag_configure(
-            "link",
-            foreground="blue",
-            underline=True
-        )
-
         # ==========================
         # Markdown parser
         # ==========================
 
-        pattern = r"(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\))"
+        pattern = r"(!\[.*?\]\(.*?\)|\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\))"
+
+        link_counter = 0
 
         for line in text.splitlines():
 
             # ---------- Headers ----------
 
             if line.startswith("# "):
-                txt.insert("end", line[2:] + "\n", "h1")
+                txt.insert(
+                    "end",
+                    line[2:] + "\n",
+                    "h1"
+                )
                 continue
 
             elif line.startswith("## "):
-                txt.insert("end", line[3:] + "\n", "h2")
+                txt.insert(
+                    "end",
+                    line[3:] + "\n",
+                    "h2"
+                )
                 continue
 
             elif line.startswith("### "):
-                txt.insert("end", line[4:] + "\n", "h3")
+                txt.insert(
+                    "end",
+                    line[4:] + "\n",
+                    "h3"
+                )
                 continue
 
             # ---------- Horizontal rule ----------
 
             elif line.strip() == "---":
+
                 txt.insert(
                     "end",
                     "────────────────────────────────────────────────────────────\n"
@@ -3105,9 +3191,16 @@ class NeutronApp:
             elif line.startswith("- "):
                 line = "• " + line[2:]
 
+            elif line.startswith("* "):
+                line = "• " + line[2:]
+
             # ---------- Numbered list ----------
 
-            m = re.match(r"^(\d+)\.\s+(.*)", line)
+            m = re.match(
+                r"^(\d+)\.\s+(.*)",
+                line
+            )
+
             if m:
                 line = f"{m.group(1)}. {m.group(2)}"
 
@@ -3119,13 +3212,17 @@ class NeutronApp:
 
                 start, end = match.span()
 
-                txt.insert("end", line[pos:start])
+                txt.insert(
+                    "end",
+                    line[pos:start]
+                )
 
                 token = match.group()
 
                 # Bold
 
                 if token.startswith("**"):
+
                     txt.insert(
                         "end",
                         token[2:-2],
@@ -3134,7 +3231,11 @@ class NeutronApp:
 
                 # Italic
 
-                elif token.startswith("*"):
+                elif (
+                    token.startswith("*")
+                    and not token.startswith("**")
+                ):
+
                     txt.insert(
                         "end",
                         token[1:-1],
@@ -3144,41 +3245,152 @@ class NeutronApp:
                 # Code
 
                 elif token.startswith("`"):
+
                     txt.insert(
                         "end",
                         token[1:-1],
                         "code"
                     )
 
-                # Markdown link
+                # Image Markdown
+
+                if token.startswith("!["):
+
+                    img_match = re.match(
+                        r"!\[(.*?)\]\((.*?)\)",
+                        token
+                    )
+
+                    if img_match:
+
+                        img_path = img_match.group(2)
+
+                        image_file = (
+                            Path(__file__).parent
+                            / "user_guide"
+                            / Path(filename).parent
+                            / img_path
+                        ).resolve()
+
+                        try:
+
+                            pil_img = Image.open(image_file)
+
+                            pil_img.thumbnail(
+                                (600, 400)
+                            )
+
+                            img = ImageTk.PhotoImage(pil_img)
+
+                            txt.image_refs.append(img)
+
+                            txt.image_create(
+                                "end",
+                                image=img
+                            )
+
+                            txt.insert(
+                                "end",
+                                "\n"
+                            )
+
+                        except Exception as e:
+
+                            print("IMAGE ERROR:", e)
+
+                            txt.insert(
+                                "end",
+                                f"[image error: {e}]\n"
+                            )
+
+                # Markdown Link
 
                 elif token.startswith("["):
 
-                    label = re.search(r"\[(.*?)\]", token).group(1)
-
-                    txt.insert(
-                        "end",
-                        label,
-                        "link"
+                    link_match = re.match(
+                        r"\[(.*?)\]\((.*?)\)",
+                        token
                     )
+
+                    if link_match:
+
+                        label = link_match.group(1)
+                        target = link_match.group(2)
+
+                        start_idx = txt.index("insert")
+
+                        txt.insert("insert", label)
+
+                        end_idx = txt.index("insert")
+
+                        tag_name = f"link_{link_counter}"
+                        link_counter += 1
+
+                        txt.tag_add(
+                            tag_name,
+                            start_idx,
+                            end_idx
+                        )
+
+                        txt.tag_configure(
+                            tag_name,
+                            foreground="blue",
+                            underline=True
+                        )
+
+                        txt.tag_bind(
+                            tag_name,
+                            "<Enter>",
+                            lambda e: txt.config(
+                                cursor="hand2"
+                            )
+                        )
+
+                        txt.tag_bind(
+                            tag_name,
+                            "<Leave>",
+                            lambda e: txt.config(
+                                cursor=""
+                            )
+                        )
+
+                        txt.tag_bind(
+                            tag_name,
+                            "<Button-1>",
+                            lambda e,
+                            tgt=target,
+                            current=filename,
+                            win=window: (
+                                win.destroy(),
+                                self._open_doc_link(
+                                    current,
+                                    tgt
+                                )
+                            )
+                        )
 
                 pos = end
 
-            txt.insert("end", line[pos:] + "\n")
+            txt.insert(
+                "end",
+                line[pos:] + "\n"
+            )
 
-        txt.config(state="disabled")
+        txt.config(
+            state="disabled"
+        )
 
 
     
 
-    def show_user_guide(self):
-        self._show_markdown_file("User Guide", "user_guide.md")
+    # def show_user_guide(self):
+    #     self._show_markdown_file("User Guide", "user_guide.md")
         
-    def show_workflow(self):
-        self._show_markdown_file("Workflow", "work_flow.md")
+    # def show_workflow(self):
+    #     self._show_markdown_file("Workflow", "work_flow.md")
 
-    def show_plot_reference(self):
-        self._show_markdown_file("Plot Reference", "plot_reference.md")
+    # def show_plot_reference(self):
+    #     self._show_markdown_file("Plot Reference", "pages/plot_reference.md")
 
     def show_about(self):
         self._show_markdown_file("About", "about.md")

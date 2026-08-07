@@ -347,6 +347,7 @@ def plot_8(
         capsize=2,
         label="Experimental",
     )
+    
 
     if show_maxwell:
         ax.plot(
@@ -391,11 +392,12 @@ def plot_8(
 
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Flux × E" if show_fluxE else "Flux")
-
+   
     if show_logx:
         ax.set_xscale("log")
     if show_logy:
         ax.set_yscale("log")
+        
 
     ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)
     ax.legend(fontsize=8)
@@ -403,7 +405,7 @@ def plot_8(
     plt.tight_layout()
     _integrer_canvas(fig, frame)
 
-    return fig
+    return fig, models
 
 def plot_9(fichiers, datasets, frame=None):
     print('Calculating please wait...')
@@ -796,16 +798,19 @@ def plot_flux_tof(fichiers, datasets, frame=None, **kwargs):
     return fig
 
 
-def plot_flux_energy(fichiers, datasets, frame=None):
+def plot_flux_energy(fichiers, datasets, frame=None, **kwargs):
     """
     Plot corrected neutron flux in the Energy domain with uncertainties.
-    Uses flux_E2 = Flux(E) × E.
-    Multiple datasets can be superimposed.
+
+    show_fluxE = True  -> Flux(E) × E
+    show_fluxE = False -> Flux(E)*
     """
 
-    E_min        = PARAMS['E_min']
-    E_max        = PARAMS['E_max']
-      
+    E_min = PARAMS['E_min']
+    E_max = PARAMS['E_max']
+
+    show_fluxE = kwargs.get("show_fluxE", False)
+
     if frame is not None:
         for widget in frame.winfo_children():
             widget.destroy()
@@ -813,18 +818,31 @@ def plot_flux_energy(fichiers, datasets, frame=None):
     fig, ax = plt.subplots(figsize=(11, 5.5))
 
     for nom in fichiers:
+
         data = datasets[nom]
-        mask_E = (data["E"] >= E_min) & (data["E"] <= E_max)
+
+        mask_E = (
+            (data["E"] >= E_min)
+            &
+            (data["E"] <= E_max)
+        )
 
         x = data["E"][mask_E]
-        y = data["flux_E2"][mask_E]
-        err = data["unc_E2"][mask_E]
 
-        # Using errorbar to display the vertical uncertainty vector on the energy scale
+        if show_fluxE:
+
+            y = data["flux_E2"][mask_E]
+            err = data["unc_E2"][mask_E]
+
+        else:
+
+            y = data["flux_E"][mask_E]
+            err = data["unc_E"][mask_E]
+
         lines, caps, bars = ax.errorbar(
             x,
             y,
-            yerr=err,  # [Propagated] uncertainty vector tracking
+            yerr=err,
             fmt='o-',
             linewidth=1.5,
             elinewidth=0.8,
@@ -832,16 +850,32 @@ def plot_flux_energy(fichiers, datasets, frame=None):
             markersize=3,
             label=nom
         )
+
         for bar in bars:
             bar.set_alpha(0.4)
 
     ax.set_xscale("log")
+
     ax.set_xlabel("Energy (eV)")
-    ax.set_ylabel("Flux(E) × E")
-    ax.set_title("Corrected Energy Flux")
-    ax.grid(True, which="both", linestyle="--", alpha=0.5)
+
+    if show_fluxE:
+        ax.set_ylabel("Flux(E) × E")
+        ax.set_title("Corrected Energy Flux × E")
+    else:
+        ax.set_ylabel("Flux(E)")
+        ax.set_title("Corrected Energy Flux")
+
+    ax.grid(
+        True,
+        which="both",
+        linestyle="--",
+        alpha=0.5
+    )
+
     ax.legend()
 
     plt.tight_layout()
+
     _integrer_canvas(fig, frame)
+
     return fig

@@ -67,7 +67,7 @@ def apply_dead_time_correction(counts, dead_time, nbr_frames, channel_width):
     return counts / (1 - counts * dead_time / (nbr_frames * channel_width))
 
 
-def remove_background(counts, n_pts=500):
+def remove_background(counts, n_pts=200):
     """Calculates and subtracts average background measured on last channels."""
     bg = np.mean(counts[-n_pts:])
     return counts - bg
@@ -239,7 +239,7 @@ def compute_fit_results_from_dataset(data):
     p0_t_epi = [
         np.max(data['flux_tof']) * (data['ToF'][np.argmax(data['flux_tof'])] * 1e6)**5,
         620000.0,
-        np.mean(data['flux_tof'][-50:]),
+        max(np.mean(data['flux_tof'][-50:]), 1e-12),
         0.5,
         0.27,
         0.921
