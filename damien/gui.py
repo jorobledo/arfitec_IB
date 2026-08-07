@@ -6,6 +6,7 @@ from tkinter import filedialog
 from tkinter import messagebox
 from tkinter import Menu
 from pathlib import Path
+from PIL import Image, ImageTk
 import re
 import pickle
 
@@ -60,6 +61,8 @@ class NeutronApp:
         self.root = root
         self.root.title("Neutron Spectrum Analysis (Chopper Experiment)")
         self.root.state("zoomed")
+
+        self.doc_window = None
 
         self.comparison_points = [] # used later for shielding experiment
         
@@ -2541,7 +2544,7 @@ class NeutronApp:
                 "show_tof_epi": self.show_tof_epi_var.get(),
                 "show_epi": self.show_epi_var.get(),
             })
-        if self.current_plot_id in ["shielding_4"]:
+        if self.current_plot_id in ["shielding_4", "shielding_1"]:
             kwargs.update({
                 "show_theo_transmission": self.show_theo_transmission_var.get()
             })
@@ -2971,13 +2974,68 @@ class NeutronApp:
         if not refresh:
             self._finalize_plot_execution(numero_plot="Energy_Flux", fichiers=fichiers, choix="Energy-Flux")
 
-    
+    def _open_doc_link(self, current_file, target):
+        """
+        Open a markdown page from a relative link.
+        """
+
+        self.doc_history = []
+        self.doc_forward = []
+
+        base_dir = (
+            Path(__file__).parent
+            / "user_guide"
+        )
+
+        current_path = base_dir / current_file
+
+        target_path = (
+            current_path.parent
+            / target
+        ).resolve()
+
+        try:
+            relative_target = str(
+                target_path.relative_to(base_dir)
+            )
+
+        except ValueError:
+            messagebox.showerror(
+                "Documentation Error",
+                f"Invalid link:\n{target}"
+            )
+            return
+
+        self.doc_history.append(current_file)
+        self.doc_forward.clear()
+
+        self._show_markdown_file(
+            Path(relative_target).stem,
+            relative_target
+        )
+
+    def _doc_back(self):
+
+        if not self.doc_history:
+            return
+
+        previous = self.doc_history.pop()
+
+        self._show_markdown_file(
+            Path(previous).stem,
+            previous
+        )
+
     def _show_markdown_file(self, title, filename):
         """
         Display a Markdown help file in a read-only window.
         """
 
-        filepath = Path(__file__).parent / "user_guide" / filename
+        filepath = (
+            Path(__file__).parent
+            / "user_guide"
+            / filename
+        )
 
         try:
             with open(filepath, "r", encoding="utf-8") as f:
@@ -2994,9 +3052,25 @@ class NeutronApp:
         # Window
         # ==========================
 
-        window = tk.Toplevel(self.root)
+        if self.doc_window is not None:
+            self.doc_window.destroy()
+
+        self.doc_window = tk.Toplevel(self.root)
+        window = self.doc_window
         window.title(title)
         window.geometry("900x700")
+
+        toolbar = tk.Frame(window)
+        toolbar.pack(fill="x")
+        tk.Button(
+            toolbar,
+            text="← Back",
+            command=self._doc_back
+        ).pack(
+            side="left",
+            padx=5,
+            pady=5
+        )
 
         txt = tk.Text(
             window,
@@ -3004,15 +3078,26 @@ class NeutronApp:
             font=("Segoe UI", 10)
         )
 
+        txt.image_refs = []
+
         scrollbar = tk.Scrollbar(
             window,
             command=txt.yview
         )
 
-        txt.configure(yscrollcommand=scrollbar.set)
+        txt.configure(
+            yscrollcommand=scrollbar.set
+        )
 
-        scrollbar.pack(side="right", fill="y")
-        txt.pack(fill="both", expand=True)
+        scrollbar.pack(
+            side="right",
+            fill="y"
+        )
+
+        txt.pack(
+            fill="both",
+            expand=True
+        )
 
         # ==========================
         # Styles
@@ -3055,43 +3140,46 @@ class NeutronApp:
             background="#f3f3f3"
         )
 
-        txt.tag_configure(
-            "bullet",
-            lmargin1=25,
-            lmargin2=45
-        )
-
-        txt.tag_configure(
-            "link",
-            foreground="blue",
-            underline=True
-        )
-
         # ==========================
         # Markdown parser
         # ==========================
 
-        pattern = r"(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\))"
+        pattern = r"(!\[.*?\]\(.*?\)|\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\))"
+
+        link_counter = 0
 
         for line in text.splitlines():
 
             # ---------- Headers ----------
 
             if line.startswith("# "):
-                txt.insert("end", line[2:] + "\n", "h1")
+                txt.insert(
+                    "end",
+                    line[2:] + "\n",
+                    "h1"
+                )
                 continue
 
             elif line.startswith("## "):
-                txt.insert("end", line[3:] + "\n", "h2")
+                txt.insert(
+                    "end",
+                    line[3:] + "\n",
+                    "h2"
+                )
                 continue
 
             elif line.startswith("### "):
-                txt.insert("end", line[4:] + "\n", "h3")
+                txt.insert(
+                    "end",
+                    line[4:] + "\n",
+                    "h3"
+                )
                 continue
 
             # ---------- Horizontal rule ----------
 
             elif line.strip() == "---":
+
                 txt.insert(
                     "end",
                     "────────────────────────────────────────────────────────────\n"
@@ -3103,9 +3191,16 @@ class NeutronApp:
             elif line.startswith("- "):
                 line = "• " + line[2:]
 
+            elif line.startswith("* "):
+                line = "• " + line[2:]
+
             # ---------- Numbered list ----------
 
-            m = re.match(r"^(\d+)\.\s+(.*)", line)
+            m = re.match(
+                r"^(\d+)\.\s+(.*)",
+                line
+            )
+
             if m:
                 line = f"{m.group(1)}. {m.group(2)}"
 
@@ -3117,13 +3212,17 @@ class NeutronApp:
 
                 start, end = match.span()
 
-                txt.insert("end", line[pos:start])
+                txt.insert(
+                    "end",
+                    line[pos:start]
+                )
 
                 token = match.group()
 
                 # Bold
 
                 if token.startswith("**"):
+
                     txt.insert(
                         "end",
                         token[2:-2],
@@ -3132,7 +3231,11 @@ class NeutronApp:
 
                 # Italic
 
-                elif token.startswith("*"):
+                elif (
+                    token.startswith("*")
+                    and not token.startswith("**")
+                ):
+
                     txt.insert(
                         "end",
                         token[1:-1],
@@ -3142,29 +3245,140 @@ class NeutronApp:
                 # Code
 
                 elif token.startswith("`"):
+
                     txt.insert(
                         "end",
                         token[1:-1],
                         "code"
                     )
 
-                # Markdown link
+                # Image Markdown
+
+                if token.startswith("!["):
+
+                    img_match = re.match(
+                        r"!\[(.*?)\]\((.*?)\)",
+                        token
+                    )
+
+                    if img_match:
+
+                        img_path = img_match.group(2)
+
+                        image_file = (
+                            Path(__file__).parent
+                            / "user_guide"
+                            / Path(filename).parent
+                            / img_path
+                        ).resolve()
+
+                        try:
+
+                            pil_img = Image.open(image_file)
+
+                            pil_img.thumbnail(
+                                (600, 400)
+                            )
+
+                            img = ImageTk.PhotoImage(pil_img)
+
+                            txt.image_refs.append(img)
+
+                            txt.image_create(
+                                "end",
+                                image=img
+                            )
+
+                            txt.insert(
+                                "end",
+                                "\n"
+                            )
+
+                        except Exception as e:
+
+                            print("IMAGE ERROR:", e)
+
+                            txt.insert(
+                                "end",
+                                f"[image error: {e}]\n"
+                            )
+
+                # Markdown Link
 
                 elif token.startswith("["):
 
-                    label = re.search(r"\[(.*?)\]", token).group(1)
-
-                    txt.insert(
-                        "end",
-                        label,
-                        "link"
+                    link_match = re.match(
+                        r"\[(.*?)\]\((.*?)\)",
+                        token
                     )
+
+                    if link_match:
+
+                        label = link_match.group(1)
+                        target = link_match.group(2)
+
+                        start_idx = txt.index("insert")
+
+                        txt.insert("insert", label)
+
+                        end_idx = txt.index("insert")
+
+                        tag_name = f"link_{link_counter}"
+                        link_counter += 1
+
+                        txt.tag_add(
+                            tag_name,
+                            start_idx,
+                            end_idx
+                        )
+
+                        txt.tag_configure(
+                            tag_name,
+                            foreground="blue",
+                            underline=True
+                        )
+
+                        txt.tag_bind(
+                            tag_name,
+                            "<Enter>",
+                            lambda e: txt.config(
+                                cursor="hand2"
+                            )
+                        )
+
+                        txt.tag_bind(
+                            tag_name,
+                            "<Leave>",
+                            lambda e: txt.config(
+                                cursor=""
+                            )
+                        )
+
+                        txt.tag_bind(
+                            tag_name,
+                            "<Button-1>",
+                            lambda e,
+                            tgt=target,
+                            current=filename,
+                            win=window: (
+                                win.destroy(),
+                                self._open_doc_link(
+                                    current,
+                                    tgt
+                                )
+                            )
+                        )
 
                 pos = end
 
-            txt.insert("end", line[pos:] + "\n")
+            txt.insert(
+                "end",
+                line[pos:] + "\n"
+            )
 
-        txt.config(state="disabled")
+        txt.config(
+            state="disabled"
+        )
 
 
     
