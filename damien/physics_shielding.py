@@ -13,7 +13,7 @@ composition_data = {
             0.03083388815,
             0.009066216415
         ),
-        "atomic_density": 1.54674E+21
+        "atomic_density": 2.43331E+21
     },
 
     10.0: {
@@ -23,7 +23,7 @@ composition_data = {
             0.4750039463,
             0.1396673866
         ),
-        "atomic_density": 2.09464E+21
+        "atomic_density": 2.78307E+21
     },
 
     20.0: {
@@ -33,7 +33,7 @@ composition_data = {
             0.02596537949,
             0.00763470856
         ),
-        "atomic_density": 3.01085E+21
+        "atomic_density": 3.03834E+21
     },
 
     25.0: {
@@ -43,7 +43,15 @@ composition_data = {
             0.2690997816,
             0.07912452836
         ),
-        "atomic_density": 3.54494e21
+        "atomic_density": 3.18154E+21
+    },
+
+    "Cd": {
+        "atomic_density":4.6e22
+    },
+
+    "CH2": {
+        "atomic_density": 4e22
     }
 }
 
@@ -87,7 +95,7 @@ def compute_sigma_mix(
         + sigma_C
     )
 
-    sigma_PDMS = 700 * (
+    sigma_PDMS = 1 * (
         2*sigma_C
         + 6*sigma_H
         + sigma_Si
@@ -133,6 +141,7 @@ def build_sigma_mix_from_files(
     file_H,
     file_O,
     file_Si,
+    file_Cd,
     f_B4C,
     f_PDMS,
     f_SiO2,
@@ -144,6 +153,7 @@ def build_sigma_mix_from_files(
     E_C, sigma_C = load_cross_section(file_C)
     E_O, sigma_O = load_cross_section(file_O)
     E_Si, sigma_Si = load_cross_section(file_Si)
+    E_Cd, sigma_Cd = load_cross_section(file_Cd)
 
     E_common = E_H
 
@@ -175,6 +185,14 @@ def build_sigma_mix_from_files(
         fill_value="extrapolate"
     )(E_common)
 
+    sigma_Cd = interp1d(
+        E_Cd,
+        sigma_Cd,
+        bounds_error=False,
+        fill_value="extrapolate"
+    )(E_common)
+
+
     sigma_mix = compute_sigma_mix(
         sigma_B,
         sigma_C,
@@ -187,7 +205,9 @@ def build_sigma_mix_from_files(
         f_MTMS
     )
 
-    return E_common, sigma_mix
+    sigma_CH2 = 2 * sigma_H + sigma_C
+
+    return E_common, sigma_mix, sigma_Cd, sigma_CH2
 
 
 # ==========================================================
@@ -223,6 +243,53 @@ def average_transmission(
         thickness_cm,
         sigma_mix,
         atomic_density
+    )
+
+    transmitted_flux = flux_incident * T_E
+
+    return (
+        np.trapezoid(transmitted_flux, E)
+        /
+        np.trapezoid(flux_incident, E)
+    )
+
+
+
+
+def transmission_vs_energy_ref(
+    thickness_Cd,
+    sigma_Cd,
+    thicnkness_CH2,
+    sigma_CH2,
+    atomic_density_Cd= composition_data["Cd"]["atomic_density"],
+    atomic_density_CH2= composition_data["CH2"]["atomic_density"]
+):
+    Sigma_macro_Cd = atomic_density_Cd * sigma_Cd * 1e-24
+    Sigma_macro_CH2 = atomic_density_CH2 * sigma_CH2 * 1e-24
+
+
+    return np.exp(
+        -Sigma_macro_Cd * thickness_Cd
+        -Sigma_macro_CH2 * thicnkness_CH2
+    )
+
+
+def average_transmission_ref(
+    E,
+    flux_incident,
+    thickness_Cd,
+    sigma_Cd,
+    thicnkness_CH2,
+    sigma_CH2,
+    atomic_density_Cd= composition_data["Cd"]["atomic_density"],
+    atomic_density_CH2= composition_data["CH2"]["atomic_density"]
+):
+
+    T_E = transmission_vs_energy_ref(
+        thickness_Cd,
+        sigma_Cd,
+        thicnkness_CH2,
+        sigma_CH2
     )
 
     transmitted_flux = flux_incident * T_E

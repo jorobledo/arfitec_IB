@@ -4,12 +4,15 @@ import os
 import re
 import numpy as np
 import matplotlib.pyplot as plt
-from physics_NAA import PARAMS, get_R, get_flux, get_lambda, model_tof_epi_NAA
-from physics import integrate_thermal_epithermal_flux
+from physics_NAA import get_R, get_flux, get_lambda, model_tof_epi_NAA
+from physics import PARAMS, integrate_thermal_epithermal_flux, masse_n, eV
 from plot import _integrer_canvas
+from config import PARAMS
 from physics_shielding import (
     build_sigma_mix_from_files,
     average_transmission,
+    load_cross_section,
+    average_transmission_ref,
 )
 from scipy.interpolate import interp1d
 from pathlib import Path
@@ -27,8 +30,8 @@ def plot_max_peak_concentration(
 
     WINDOW = 30
 
-    THERMAL_T_MIN = 100e-6
-    THERMAL_T_MAX = 3700e-6
+    THERMAL_T_MIN = 300e-6
+    THERMAL_T_MAX = 2000e-6
 
     if frame is not None:
         for widget in frame.winfo_children():
@@ -173,8 +176,8 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
     # Thermal integration limits
     # ----------------------------------------------------------
 
-    THERMAL_T_MIN = 100e-6
-    THERMAL_T_MAX = 3700e-6
+    THERMAL_T_MIN = 300e-6
+    THERMAL_T_MAX = 2000e-6
 
     if frame is not None:
         for widget in frame.winfo_children():
@@ -448,17 +451,8 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
         # Experimental incident spectrum
         # ------------------------------------------------------
 
-        E_flux = ref["E"]
-
-        flux_ref_energy = ref["flux_E"]
-
-        # Interpolation of the incident spectrum
-        flux_interp = interp1d(
-            E_flux,
-            flux_ref_energy,
-            bounds_error=False,
-            fill_value=0.0
-        )
+        tof_ref = ref["ToF"]
+        flux_ref_tof = ref["flux_tof"]
 
         # ------------------------------------------------------
         # Compute theoretical transmission
@@ -487,15 +481,32 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
                 fract_MTMS
             )
 
-            # Interpolate incident spectrum on the new grid
-            flux_incident = flux_interp(E_mix)
+            # --------------------------------------------------
+            # Convert reference ToF -> Energy
+            # --------------------------------------------------
 
-            # Compute transmission
-            T = average_transmission(
-                0.45,
+            E_ref = ref["E"]
+
+            # Interpolate sigma on experimental energy grid
+            sigma_interp = interp1d(
                 E_mix,
                 sigma_mix,
-                flux_incident,
+                bounds_error=False,
+                fill_value="extrapolate"
+            )
+
+            sigma_ref = sigma_interp(E_ref)
+
+            # Thermal window
+            E_max_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MIN)**2 / eV
+            E_min_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MAX)**2 / eV
+            mask = (E_ref >= E_min_thermal) & (E_ref <= E_max_thermal)
+
+            T = average_transmission(
+                0.45,
+                E_ref[mask],
+                sigma_ref[mask],
+                flux_ref_tof[mask],
                 atomic_density=atomic_density
             )
 
@@ -683,8 +694,8 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
     import numpy as np
     import matplotlib.pyplot as plt
 
-    THERMAL_T_MIN = 100e-6
-    THERMAL_T_MAX = 3700e-6
+    THERMAL_T_MIN = PARAMS["t_min"]
+    THERMAL_T_MAX = PARAMS["t_max"]
 
     if frame is not None:
         for widget in frame.winfo_children():
@@ -1016,37 +1027,29 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
         H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
         O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.dat"
         Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
+        Cd_file = BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat"
 
-        E_mix, sigma_mix = build_sigma_mix_from_files(
+        E_mix, sigma_mix, sigma_Cd, sigma_CH2 = build_sigma_mix_from_files(
             B_file,
             C_file,
             H_file,
             O_file,
             Si_file,
+            Cd_file,
             0.650218276,
             0.001557414014,
             0.2690997816,
             0.07912452836
         )
 
+
         # ------------------------------------------------------
         # Experimental incident spectrum
         # ------------------------------------------------------
 
-        E_flux = ref["E"]
-
-        flux_ref_energy = ref["flux_E"]
-
-        # Interpolation of the incident spectrum
-        flux_interp = interp1d(
-            E_flux,
-            flux_ref_energy,
-            bounds_error=False,
-            fill_value=0.0
-        )
-
-        flux_incident = flux_interp(E_mix)
-
+        tof_ref = ref["ToF"]
+        flux_ref_tof = ref["flux_tof"]
+        
         # ------------------------------------------------------
         # Compute theoretical transmission
         # ------------------------------------------------------
@@ -1057,15 +1060,76 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
 
             thickness_cm = thickness_mm / 10.0
 
-            T = average_transmission(
-                thickness_cm,
+            # --------------------------------------------------
+            # Convert reference ToF -> Energy
+            # --------------------------------------------------
+
+            E_ref = ref["E"]
+
+            # Interpolate sigma on experimental energy grid
+            sigma_interp = interp1d(
                 E_mix,
                 sigma_mix,
-                flux_incident,
-                atomic_density=3.54494e20
+                bounds_error=False,
+                fill_value="extrapolate"
             )
 
-            T_theory.append(T)
+            sigma_interp_Cd = interp1d(
+                E_mix,
+                sigma_Cd,
+                bounds_error=False,
+                fill_value="extrapolate"
+            )
+
+            sigma_interp_CH2 = interp1d(
+                E_mix,
+                sigma_CH2,
+                bounds_error=False,
+                fill_value="extrapolate"
+            )
+
+            E_mix = interp1d(
+                E_mix,
+                E_mix,
+                bounds_error=False,
+                fill_value="extrapolate"
+            )(E_ref[mask])
+
+            # Thermal window
+            E_max_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MIN)**2 / eV
+            E_min_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MAX)**2 / eV
+            mask = (E_ref >= E_min_thermal) & (E_ref <= E_max_thermal)
+
+            sigma_mix = sigma_interp(E_ref[mask])
+            sigma_Cd = sigma_interp_Cd(E_ref[mask])
+            sigma_CH2 = sigma_interp_CH2(E_ref[mask])
+
+
+            T_theory.append(average_transmission(
+                thickness_cm,
+                E_ref[mask],
+                sigma_mix,
+                flux_ref_tof[mask],
+                atomic_density=3.18154E+21
+            ))
+
+        T_polyethylene = average_transmission_ref(
+            E_ref[mask],
+            flux_ref_tof[mask],
+            0.1,
+            sigma_Cd,
+            0.5,
+            sigma_CH2,
+        )
+
+        T_Cd = average_transmission(
+            0.1,
+            E_ref[mask],
+            sigma_Cd,
+            flux_ref_tof[mask],
+            atomic_density=4.6e22
+        )
+
 
         T_theory = np.array(T_theory)
 
@@ -1079,6 +1143,26 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
             linewidth=1.5,
             label="Beer-Lambert model"
         )
+
+        ax.plot(
+            6.0,
+            T_polyethylene,
+            "o",
+            color="#FF00E6",
+            markerfacecolor="white",
+            markeredgecolor="#FF00E6",
+            label="Polyethylene + Cd reference"
+        )
+        ax.plot(
+            1.0,
+            T_Cd,
+            "o",
+            color="#00FF40",
+            markerfacecolor="white",
+            markeredgecolor="#00FF40",
+            label="Cd reference"
+        )
+
 
 
     ax.set_xlabel("B$_4$C thickness (mm)")
