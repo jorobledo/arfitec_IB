@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.interpolate import interp1d
+from pathlib import Path
 
 # ------------------------------------------------------
 # Composition data
@@ -62,10 +63,29 @@ composition_data = {
 
 def load_cross_section(filename):
 
-    data = np.loadtxt(
-        filename,
-        usecols=(0, 1)
-    )
+    extension = Path(filename).suffix.lower()
+
+    if extension == ".dat":
+
+        data = np.loadtxt(
+            filename,
+            usecols=(0, 1),
+            skiprows=1
+        )
+
+    elif extension == ".txt":
+
+        data = np.loadtxt(
+            filename,
+            delimiter=",",
+            usecols=(0, 1),
+            skiprows=1
+        )
+
+    else:
+        raise ValueError(
+            f"Unsupported file format: {extension}"
+        )
 
     E = data[:, 0]
     sigma = data[:, 1]
@@ -161,35 +181,35 @@ def build_sigma_mix_from_files(
         E_C,
         sigma_C,
         bounds_error=False,
-        fill_value="extrapolate"
+        fill_value="0.0"
     )(E_common)
 
     sigma_B = interp1d(
         E_B,
         sigma_B,
         bounds_error=False,
-        fill_value="extrapolate"
+        fill_value="0.0"
     )(E_common)
 
     sigma_O = interp1d(
         E_O,
         sigma_O,
         bounds_error=False,
-        fill_value="extrapolate"
+        fill_value="0.0"
     )(E_common)
 
     sigma_Si = interp1d(
         E_Si,
         sigma_Si,
         bounds_error=False,
-        fill_value="extrapolate"
+        fill_value="0.0"
     )(E_common)
 
     sigma_Cd = interp1d(
         E_Cd,
         sigma_Cd,
         bounds_error=False,
-        fill_value="extrapolate"
+        fill_value="0.0"
     )(E_common)
 
 

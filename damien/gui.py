@@ -601,6 +601,8 @@ class NeutronApp:
             ("Max Peak Shifting", "shielding_3"),
             ("Total Transmission (Thickness)", "shielding_4"),
             ("Total Transmission ToF(Thickness)", "shielding_5"),
+            ("Total Cross Section of Components Elements", "shielding_6"),
+            ("Transmission vs Energy", "shielding_7")
         ]
         for label, p_id in shielding_options:
             self.shielding_submenu.add_command(
@@ -1510,6 +1512,19 @@ class NeutronApp:
             "display_limits": True,
             "plot8_options": False,
         },
+
+        "shielding_6": {
+                    "default_logx": True,
+                    "default_logy": True,
+                    "display_limits": False,
+                    "plot8_options": False,
+                },
+        "shielding_7": {
+                    "default_logx": True,
+                    "default_logy": False,
+                    "display_limits": False,
+                    "plot8_options": False,
+                },
     }
 
 
@@ -2377,19 +2392,34 @@ class NeutronApp:
             return
 
         ax = self.current_fig.axes[0]
-    
+
         ax.set_xscale("log" if self.show_logx_var.get() else "linear")
+
         if self.show_logy_var.get():
 
-            # Remove invalid lower limit for logarithmic scale
             ymin, ymax = ax.get_ylim()
 
             if ymin <= 0:
-                ymin = np.min([
-                    line.get_ydata().min()
-                    for line in ax.get_lines()
-                    if np.all(line.get_ydata() > 0)
-                ])
+
+                positive_values = []
+
+                for line in ax.get_lines():
+
+                    y = np.asarray(line.get_ydata())
+
+                    # Suppression des NaN et inf
+                    y = y[np.isfinite(y)]
+
+                    # Conservation des valeurs strictement positives
+                    y = y[y > 0]
+
+                    if len(y):
+                        positive_values.append(np.min(y))
+
+                if positive_values:
+                    ymin = np.min(positive_values)
+                else:
+                    ymin = 1e-6
 
             ax.set_ylim(ymin, ymax)
             ax.set_yscale("log")
@@ -2397,7 +2427,7 @@ class NeutronApp:
         else:
             ax.set_yscale("linear")
 
-        self.current_fig.canvas.draw_idle()       
+        self.current_fig.canvas.draw_idle()    
 
     def on_change_y_limits(self, val=None):
         cfg = self.get_plot_config()
@@ -2785,6 +2815,20 @@ class NeutronApp:
                 elif numero_plot == "shielding_5":
                                     
                     self.current_fig = pt_shldg.plot_transmission_thickness_tof(
+                        fichiers,
+                        self.datasets,
+                        **base_kwargs
+                    )
+
+                elif numero_plot == "shielding_6":
+                                                   
+                    self.current_fig = pt_shldg.plot_total_cross_section(
+                        fichiers,
+                        **base_kwargs
+                    )
+
+                elif numero_plot == "shielding_7":
+                    self.current_fig = pt_shldg.plot_transmission_vs_energy(
                         fichiers,
                         self.datasets,
                         **base_kwargs

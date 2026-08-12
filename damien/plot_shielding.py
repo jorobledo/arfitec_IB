@@ -13,6 +13,8 @@ from physics_shielding import (
     average_transmission,
     load_cross_section,
     average_transmission_ref,
+    transmission_vs_energy,
+    transmission_vs_energy_ref,
 )
 from scipy.interpolate import interp1d
 from pathlib import Path
@@ -492,7 +494,7 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
                 E_mix,
                 sigma_mix,
                 bounds_error=False,
-                fill_value="extrapolate"
+                fill_value="0"
             )
 
             sigma_ref = sigma_interp(E_ref)
@@ -1071,28 +1073,28 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
                 E_mix,
                 sigma_mix,
                 bounds_error=False,
-                fill_value="extrapolate"
+                fill_value="0"
             )
 
             sigma_interp_Cd = interp1d(
                 E_mix,
                 sigma_Cd,
                 bounds_error=False,
-                fill_value="extrapolate"
+                fill_value="0"
             )
 
             sigma_interp_CH2 = interp1d(
                 E_mix,
                 sigma_CH2,
                 bounds_error=False,
-                fill_value="extrapolate"
+                fill_value="0"
             )
 
             E_mix = interp1d(
                 E_mix,
                 E_mix,
                 bounds_error=False,
-                fill_value="extrapolate"
+                fill_value="0"
             )(E_ref[mask])
 
             # Thermal window
@@ -1339,3 +1341,147 @@ def plot_transmission_thickness_tof(fichiers, datasets, frame=None):
     _integrer_canvas(fig, frame)
 
     return fig
+
+
+def plot_total_cross_section(fichiers, frame=None):
+
+    BASE_DIR = Path(__file__).parent
+
+    files = {
+        "H":  BASE_DIR / "Shielding" / "set-tot" / "H"  / "sig-tot-H.dat",
+        "C":  BASE_DIR / "Shielding" / "set-tot" / "C"  / "sig-tot-C.dat",
+        "O":  BASE_DIR / "Shielding" / "set-tot" / "O"  / "sig-tot-O.dat",
+        "Si": BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat",
+        "Cd": BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat",
+        "B":  BASE_DIR / "Shielding" / "set-tot" / "B"  / "sig-tot-B.dat",
+        "H2": BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.txt",
+        "O2": BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt",
+    }
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    for name, file in files.items():
+
+        E, sigma = load_cross_section(file)
+
+        ax.plot(
+            E,
+            sigma,
+            linewidth=1.5,
+            label=name
+        )
+
+    # Polyéthylène CH2
+    E_H, sigma_H = load_cross_section(files["H"])
+    E_C, sigma_C = load_cross_section(files["C"])
+
+    sigma_C_interp = interp1d(
+        E_C,
+        sigma_C,
+        bounds_error=False,
+        fill_value="0.0"
+    )(E_H)
+
+    sigma_CH2 = sigma_C_interp + 2 * sigma_H
+
+    ax.plot(
+        E_H,
+        sigma_CH2,
+        "--",
+        linewidth=2,
+        label="CH₂"
+    )
+
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Total cross section (barns)")
+    ax.set_xlim(1e-3, 1e6)
+
+    ax.set_title("Total neutron cross sections")
+
+    ax.grid(True, which="both", alpha=0.3)
+
+    ax.legend()
+    _integrer_canvas(fig, frame)
+
+    plt.tight_layout()
+
+    if frame is not None:
+        return fig
+
+def plot_transmission_vs_energy(fichiers, datasets, frame=None):
+
+    thickness_aerogel = 0.45  # cm
+    thickness_Cd = 0.1        # cm (1 mm)
+    thickness_CH2 = 0.5       # cm (5 mm)
+
+    BASE_DIR = Path(__file__).parent
+
+    B_file  = BASE_DIR / "Shielding" / "set-tot" / "B" / "sig-tot-B.dat"
+    C_file  = BASE_DIR / "Shielding" / "set-tot" / "C" / "sig-tot-C.dat"
+    H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
+    O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.dat"
+    Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
+    Cd_file = BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat"
+
+    E_mix, sigma_mix, sigma_Cd, sigma_CH2 = build_sigma_mix_from_files(
+        B_file,
+        C_file,
+        H_file,
+        O_file,
+        Si_file,
+        Cd_file,
+        0.650218276,
+        0.001557414014,
+        0.2690997816,
+        0.07912452836
+    )
+
+    # Aerogel
+    T_mix = transmission_vs_energy(
+        thickness_aerogel,
+        sigma_mix,
+        atomic_density=3.18154E21
+    )
+
+    # Cd seul
+    T_Cd = transmission_vs_energy(
+        thickness_Cd,
+        sigma_Cd,
+        atomic_density=composition_data["Cd"]["atomic_density"]
+    )
+
+    # Cd + CH2
+    T_Cd_CH2 = transmission_vs_energy_ref(
+        thickness_Cd,
+        sigma_Cd,
+        thickness_CH2,
+        sigma_CH2
+    )
+
+    fig, ax = plt.subplots(figsize=(8,5))
+
+    ax.plot(E_mix, T_mix, label="Aerogel")
+    ax.plot(E_mix, T_Cd, label="Cd 1 mm")
+    ax.plot(E_mix, T_Cd_CH2, label="Cd 1 mm + CH₂ 5 mm")
+
+    ax.axvline(
+        17,
+        color="k",
+        linestyle="--",
+        alpha=0.5,
+        label="17 eV"
+    )
+
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Transmission")
+    ax.set_xlim(1e-3, 1e3)
+    ax.set_title("Neutron transmission vs energy")
+
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend()
+
+    _integrer_canvas(fig, frame)
+    plt.tight_layout()
+    
+    if frame is not None:
+        return fig
