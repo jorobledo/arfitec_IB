@@ -44,7 +44,7 @@ composition_data = {
             0.2690997816,
             0.07912452836
         ),
-        "atomic_density": 3.18154E+21
+        "atomic_density": 3.35057+21
     },
 
     "Cd": {

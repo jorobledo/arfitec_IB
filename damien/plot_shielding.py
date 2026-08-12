@@ -1018,22 +1018,27 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
     # Theoretical transmission model
     # ==========================================================
     show_theo = kwargs.get("show_theo_transmission", True)
-    if show_theo :
+
+    if show_theo:
 
         # ------------------------------------------------------
         # Cross section files
         # ------------------------------------------------------
         BASE_DIR = Path(__file__).parent
 
-        B_file  = BASE_DIR / "Shielding" / "set-tot" / "B" / "sig-tot-B.dat"
-        C_file  = BASE_DIR / "Shielding" / "set-tot" / "C" / "sig-tot-C.dat"
-        H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.txt"
-        O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt"
+        B_file = BASE_DIR / "Shielding" / "set-tot" / "B" / "sig-tot-B.dat"
+        C_file = BASE_DIR / "Shielding" / "set-tot" / "C" / "sig-tot-C.dat"
+        H_file = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
+        O_file = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt"
         Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
         Cd_file = BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat"
-        # ref_file = BASE_DIR / "Shielding" / "set-tot" / "spectre_transmis_simulation.dat"
-        ref_file = BASE_DIR / "Shielding" / "set-tot" / "source_simu_100ev.dat"
-        
+
+        ref_file = (
+            BASE_DIR
+            / "Shielding"
+            / "set-tot"
+            / "spectre_transmis_simulation.dat"
+        )
 
         E_mix, sigma_mix, sigma_Cd, sigma_CH2 = build_sigma_mix_from_files(
             B_file,
@@ -1048,95 +1053,176 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
             0.07912452836
         )
 
-
         # ------------------------------------------------------
-        # Experimental incident spectrum
+        # Experimental / simulated incident spectrum
         # ------------------------------------------------------
-
         E_ref, Flux_ref_simu = load_cross_section(ref_file)
-        
-        # ------------------------------------------------------
-        # Compute theoretical transmission
-        # ------------------------------------------------------
 
-        # Interpolate sigma on experimental energy grid
+        # ------------------------------------------------------
+        # Interpolate cross sections on reference energy grid
+        # ------------------------------------------------------
         sigma_interp = interp1d(
             E_mix,
             sigma_mix,
             bounds_error=False,
-            fill_value="0.0"
+            fill_value=0.0
         )
 
         sigma_interp_Cd = interp1d(
             E_mix,
             sigma_Cd,
             bounds_error=False,
-            fill_value="0.0"
+            fill_value=0.0
         )
 
         sigma_interp_CH2 = interp1d(
             E_mix,
             sigma_CH2,
             bounds_error=False,
-            fill_value="0.0"
+            fill_value=0.0
         )
 
-        sigma_mix = sigma_interp(E_ref)
-        sigma_Cd = sigma_interp_Cd(E_ref)
-        sigma_CH2 = sigma_interp_CH2(E_ref)
+        sigma_mix_interp = sigma_interp(E_ref)
+        sigma_Cd_interp = sigma_interp_Cd(E_ref)
+        sigma_CH2_interp = sigma_interp_CH2(E_ref)
 
-        print("E_ref :", E_ref.shape)
-        print("mask :", mask.shape)
-        print("sigma_mix :", sigma_mix.shape)
-        print("sigma_Cd :", sigma_Cd.shape)
-        print("sigma_CH2 :", sigma_CH2.shape)
-        print("Flux_ref_simu :", Flux_ref_simu.shape)
+        # ------------------------------------------------------
+        # Keep only valid positive energies
+        # ------------------------------------------------------
+        valid_mask = (
+            np.isfinite(E_ref)
+            & np.isfinite(Flux_ref_simu)
+            & (E_ref > 0)
+        )
 
-        T_theory = []
+        E_ref_valid = E_ref[valid_mask]
+        Flux_ref_valid = Flux_ref_simu[valid_mask]
+        sigma_mix_valid = sigma_mix_interp[valid_mask]
+        sigma_Cd_valid = sigma_Cd_interp[valid_mask]
+        sigma_CH2_valid = sigma_CH2_interp[valid_mask]
 
-        for thickness_mm in thicknesses:
+        # Sort according to energy
+        sort_idx = np.argsort(E_ref_valid)
 
-            thickness_cm = thickness_mm / 10.0
+        E_ref_valid = E_ref_valid[sort_idx]
+        Flux_ref_valid = Flux_ref_valid[sort_idx]
+        sigma_mix_valid = sigma_mix_valid[sort_idx]
+        sigma_Cd_valid = sigma_Cd_valid[sort_idx]
+        sigma_CH2_valid = sigma_CH2_valid[sort_idx]
+
+        # ------------------------------------------------------
+        # Initial energy range
+        # ------------------------------------------------------
+        E_min_data = E_ref_valid.min()
+        E_max_data = E_ref_valid.max()
+
+        # Initial range = thermal window if it is inside the data range
+        E_max_thermal = (
+            0.5 * masse_n * (1.915 / THERMAL_T_MIN) ** 2 / eV
+        )
+
+        E_min_thermal = (
+            0.5 * masse_n * (1.915 / THERMAL_T_MAX) ** 2 / eV
+        )
+
+        E_min_selected = max(E_min_data, E_min_thermal)
+        E_max_selected = min(E_max_data, E_max_thermal)
+
+        # If thermal range is not contained in the data,
+        # use the complete available range
+        if E_min_selected >= E_max_selected:
+            E_min_selected = E_min_data
+            E_max_selected = E_max_data
+
+        # ------------------------------------------------------
+        # Initial theoretical calculation
+        # ------------------------------------------------------
+        def compute_theoretical_transmission(
+            E_min,
+            E_max
+        ):
+            """
+            Compute the theoretical transmission using only
+            the selected energy interval.
+            """
+
+            energy_mask = (
+                (E_ref_valid >= E_min)
+                & (E_ref_valid <= E_max)
+            )
+
+            E_selected = E_ref_valid[energy_mask]
+            Flux_selected = Flux_ref_valid[energy_mask]
+            sigma_selected = sigma_mix_valid[energy_mask]
+
+            sigma_Cd_selected = sigma_Cd_valid[energy_mask]
+            sigma_CH2_selected = sigma_CH2_valid[energy_mask]
+
+            # Avoid calculation if the selected interval
+            # contains too few points
+            if len(E_selected) < 2:
+                return None
 
             # --------------------------------------------------
-            # Convert reference ToF -> Energy
-            # -------------------------------------------------
+            # B4C transmission
+            # --------------------------------------------------
+            T_theory = []
 
-            # # Thermal window
-            # E_max_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MIN)**2 / eV
-            # E_min_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MAX)**2 / eV
-            # mask = (E_ref >= E_min_thermal) & (E_ref <= E_max_thermal)
+            for thickness_mm in thicknesses:
 
+                thickness_cm = thickness_mm / 10.0
 
-            T_theory.append(average_transmission(
-                thickness_cm,
-                E_ref,
-                sigma_mix,
-                Flux_ref_simu,
-                atomic_density=3.18154E+21
-            ))
+                T = average_transmission(
+                    thickness_cm,
+                    E_selected,
+                    sigma_selected,
+                    Flux_selected,
+                    atomic_density=3.35E+21
+                )
 
-        T_polyethylene = average_transmission_ref(
-            E_ref,
-            Flux_ref_simu,
-            0.1,
-            sigma_Cd,
-            0.5,
-            sigma_CH2,
+                T_theory.append(T)
+
+            T_theory = np.asarray(T_theory)
+
+            # --------------------------------------------------
+            # Polyethylene + Cd reference
+            # --------------------------------------------------
+            T_polyethylene = average_transmission_ref(
+                E_selected,
+                Flux_selected,
+                0.1,
+                sigma_Cd_selected,
+                0.5,
+                sigma_CH2_selected,
+            )
+
+            # --------------------------------------------------
+            # Cd reference
+            # --------------------------------------------------
+            T_Cd = average_transmission(
+                0.1,
+                E_selected,
+                sigma_Cd_selected,
+                Flux_selected,
+                atomic_density=4.6e22
+            )
+
+            return T_theory, T_polyethylene, T_Cd
+
+        # ------------------------------------------------------
+        # Initial calculation
+        # ------------------------------------------------------
+        result = compute_theoretical_transmission(
+            E_min_selected,
+            E_max_selected
         )
 
-        T_Cd = average_transmission(
-            0.1,
-            E_ref,
-            sigma_Cd,
-            Flux_ref_simu,
-            atomic_density=4.6e22
-        )
+        T_theory, T_polyethylene, T_Cd = result
 
-
-        T_theory = np.array(T_theory)
-
-        ax.plot(
+        # ------------------------------------------------------
+        # Plot theoretical curves
+        # ------------------------------------------------------
+        theory_line, = ax.plot(
             thicknesses,
             T_theory,
             "o--",
@@ -1147,7 +1233,7 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
             label="Beer-Lambert model"
         )
 
-        ax.plot(
+        polyethylene_point, = ax.plot(
             6.0,
             T_polyethylene,
             "o",
@@ -1156,7 +1242,8 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
             markeredgecolor="#FF00E6",
             label="Polyethylene + Cd reference"
         )
-        ax.plot(
+
+        cd_point, = ax.plot(
             1.0,
             T_Cd,
             "o",
@@ -1166,19 +1253,131 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
             label="Cd reference"
         )
 
+        # ======================================================
+        # Energy Range Slider
+        # ======================================================
 
+        # Leave space at bottom for slider
+        fig.subplots_adjust(bottom=0.25)
+
+        slider_ax = fig.add_axes(
+            [0.15, 0.09, 0.70, 0.035]
+        )
+
+        # Slider works in log10(E)
+        log_E_min = np.log10(E_min_data)
+        log_E_max = np.log10(E_max_data)
+
+        slider = RangeSlider(
+            slider_ax,
+            "Energy (eV)",
+            log_E_min,
+            log_E_max,
+            valinit=(
+                np.log10(E_min_selected),
+                np.log10(E_max_selected)
+            ),
+            valfmt="%1.2f"
+        )
+
+        # ------------------------------------------------------
+        # Energy label
+        # ------------------------------------------------------
+        energy_text = fig.text(
+            0.5,
+            0.04,
+            "",
+            ha="center",
+            fontsize=10
+        )
+
+        def format_energy(E):
+            """
+            Convert energy in eV to a readable unit.
+            """
+
+            if E < 1e-3:
+                return f"{E * 1e6:.3g} µeV"
+
+            elif E < 1:
+                return f"{E * 1e3:.3g} meV"
+
+            else:
+                return f"{E:.3g} eV"
+
+        def update_energy_range(val):
+
+            # ----------------------------------------------
+            # Convert slider values back to energy
+            # ----------------------------------------------
+            E_min_selected = 10 ** val[0]
+            E_max_selected = 10 ** val[1]
+
+            # ----------------------------------------------
+            # Update displayed energy range
+            # ----------------------------------------------
+            energy_text.set_text(
+                f"Selected energy range: "
+                f"{format_energy(E_min_selected)} "
+                f"→ "
+                f"{format_energy(E_max_selected)}"
+            )
+
+            # ----------------------------------------------
+            # Recalculate theoretical transmission
+            # ----------------------------------------------
+            result = compute_theoretical_transmission(
+                E_min_selected,
+                E_max_selected
+            )
+
+            if result is None:
+                return
+
+            T_theory_new, T_polyethylene_new, T_Cd_new = result
+
+            # ----------------------------------------------
+            # Update plotted data
+            # ----------------------------------------------
+            theory_line.set_ydata(T_theory_new)
+
+            polyethylene_point.set_ydata(
+                [T_polyethylene_new]
+            )
+
+            cd_point.set_ydata(
+                [T_Cd_new]
+            )
+
+            # ----------------------------------------------
+            # Redraw
+            # ----------------------------------------------
+            fig.canvas.draw_idle()
+
+        slider.on_changed(update_energy_range)
+
+        # Store slider on figure so it is not garbage collected
+        fig._energy_range_slider = slider
+        fig._energy_text = energy_text
+
+        # Initialize text
+        update_energy_range(slider.val)
+
+
+    # ==========================================================
+    # Plot formatting
+    # ==========================================================
 
     ax.set_xlabel("B$_4$C thickness (mm)")
     ax.set_ylabel("Thermal neutron transmission")
     ax.set_title("Thermal neutron transmission vs thickness")
 
     ax.grid(True, linestyle="--", alpha=0.5)
+
     handles, labels = ax.get_legend_handles_labels()
 
     if labels:
         ax.legend()
-
-    plt.tight_layout()
 
     _integrer_canvas(fig, frame)
 
