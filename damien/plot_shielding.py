@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import os
 import re
+from matplotlib.widgets import RangeSlider
 import numpy as np
 import matplotlib.pyplot as plt
 from physics_NAA import get_R, get_flux, get_lambda, model_tof_epi_NAA
@@ -1026,10 +1027,13 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
 
         B_file  = BASE_DIR / "Shielding" / "set-tot" / "B" / "sig-tot-B.dat"
         C_file  = BASE_DIR / "Shielding" / "set-tot" / "C" / "sig-tot-C.dat"
-        H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
-        O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.dat"
+        H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.txt"
+        O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt"
         Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
         Cd_file = BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat"
+        # ref_file = BASE_DIR / "Shielding" / "set-tot" / "spectre_transmis_simulation.dat"
+        ref_file = BASE_DIR / "Shielding" / "set-tot" / "source_simu_100ev.dat"
+        
 
         E_mix, sigma_mix, sigma_Cd, sigma_CH2 = build_sigma_mix_from_files(
             B_file,
@@ -1049,12 +1053,44 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
         # Experimental incident spectrum
         # ------------------------------------------------------
 
-        tof_ref = ref["ToF"]
-        flux_ref_tof = ref["flux_tof"]
+        E_ref, Flux_ref_simu = load_cross_section(ref_file)
         
         # ------------------------------------------------------
         # Compute theoretical transmission
         # ------------------------------------------------------
+
+        # Interpolate sigma on experimental energy grid
+        sigma_interp = interp1d(
+            E_mix,
+            sigma_mix,
+            bounds_error=False,
+            fill_value="0.0"
+        )
+
+        sigma_interp_Cd = interp1d(
+            E_mix,
+            sigma_Cd,
+            bounds_error=False,
+            fill_value="0.0"
+        )
+
+        sigma_interp_CH2 = interp1d(
+            E_mix,
+            sigma_CH2,
+            bounds_error=False,
+            fill_value="0.0"
+        )
+
+        sigma_mix = sigma_interp(E_ref)
+        sigma_Cd = sigma_interp_Cd(E_ref)
+        sigma_CH2 = sigma_interp_CH2(E_ref)
+
+        print("E_ref :", E_ref.shape)
+        print("mask :", mask.shape)
+        print("sigma_mix :", sigma_mix.shape)
+        print("sigma_Cd :", sigma_Cd.shape)
+        print("sigma_CH2 :", sigma_CH2.shape)
+        print("Flux_ref_simu :", Flux_ref_simu.shape)
 
         T_theory = []
 
@@ -1064,60 +1100,25 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
 
             # --------------------------------------------------
             # Convert reference ToF -> Energy
-            # --------------------------------------------------
+            # -------------------------------------------------
 
-            E_ref = ref["E"]
-
-            # Interpolate sigma on experimental energy grid
-            sigma_interp = interp1d(
-                E_mix,
-                sigma_mix,
-                bounds_error=False,
-                fill_value="0"
-            )
-
-            sigma_interp_Cd = interp1d(
-                E_mix,
-                sigma_Cd,
-                bounds_error=False,
-                fill_value="0"
-            )
-
-            sigma_interp_CH2 = interp1d(
-                E_mix,
-                sigma_CH2,
-                bounds_error=False,
-                fill_value="0"
-            )
-
-            E_mix = interp1d(
-                E_mix,
-                E_mix,
-                bounds_error=False,
-                fill_value="0"
-            )(E_ref[mask])
-
-            # Thermal window
-            E_max_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MIN)**2 / eV
-            E_min_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MAX)**2 / eV
-            mask = (E_ref >= E_min_thermal) & (E_ref <= E_max_thermal)
-
-            sigma_mix = sigma_interp(E_ref[mask])
-            sigma_Cd = sigma_interp_Cd(E_ref[mask])
-            sigma_CH2 = sigma_interp_CH2(E_ref[mask])
+            # # Thermal window
+            # E_max_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MIN)**2 / eV
+            # E_min_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MAX)**2 / eV
+            # mask = (E_ref >= E_min_thermal) & (E_ref <= E_max_thermal)
 
 
             T_theory.append(average_transmission(
                 thickness_cm,
-                E_ref[mask],
+                E_ref,
                 sigma_mix,
-                flux_ref_tof[mask],
+                Flux_ref_simu,
                 atomic_density=3.18154E+21
             ))
 
         T_polyethylene = average_transmission_ref(
-            E_ref[mask],
-            flux_ref_tof[mask],
+            E_ref,
+            Flux_ref_simu,
             0.1,
             sigma_Cd,
             0.5,
@@ -1126,9 +1127,9 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
 
         T_Cd = average_transmission(
             0.1,
-            E_ref[mask],
+            E_ref,
             sigma_Cd,
-            flux_ref_tof[mask],
+            Flux_ref_simu,
             atomic_density=4.6e22
         )
 
@@ -1419,10 +1420,11 @@ def plot_transmission_vs_energy(fichiers, datasets, frame=None):
     B_file  = BASE_DIR / "Shielding" / "set-tot" / "B" / "sig-tot-B.dat"
     C_file  = BASE_DIR / "Shielding" / "set-tot" / "C" / "sig-tot-C.dat"
     H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
-    O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.dat"
+    O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt"
     Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
     Cd_file = BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat"
-
+    
+    
     E_mix, sigma_mix, sigma_Cd, sigma_CH2 = build_sigma_mix_from_files(
         B_file,
         C_file,
@@ -1439,6 +1441,12 @@ def plot_transmission_vs_energy(fichiers, datasets, frame=None):
     # Aerogel
     T_mix = transmission_vs_energy(
         thickness_aerogel,
+        sigma_mix,
+        atomic_density=3.18154E21
+    )
+
+    T_mix_2 = transmission_vs_energy(
+        2.0,
         sigma_mix,
         atomic_density=3.18154E21
     )
@@ -1460,7 +1468,8 @@ def plot_transmission_vs_energy(fichiers, datasets, frame=None):
 
     fig, ax = plt.subplots(figsize=(8,5))
 
-    ax.plot(E_mix, T_mix, label="Aerogel")
+    ax.plot(E_mix, T_mix, label="Aerogel 4.5 mm")
+    ax.plot(E_mix, T_mix_2, label="Aerogel 20 mm")
     ax.plot(E_mix, T_Cd, label="Cd 1 mm")
     ax.plot(E_mix, T_Cd_CH2, label="Cd 1 mm + CH₂ 5 mm")
 
@@ -1474,7 +1483,7 @@ def plot_transmission_vs_energy(fichiers, datasets, frame=None):
 
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Transmission")
-    ax.set_xlim(1e-3, 1e3)
+    ax.set_xlim(1e-3, 1e7)
     ax.set_title("Neutron transmission vs energy")
 
     ax.grid(True, which="both", alpha=0.3)
