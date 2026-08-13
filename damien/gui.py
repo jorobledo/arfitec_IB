@@ -129,6 +129,11 @@ class NeutronApp:
         self.notebook.add(self.tab_analysis, text=" Analysis & Control ")
         self.notebook.add(self.tab_config, text=" Physical Parameters ")
         self.notebook.add(self.tab_stats, text=" Fit Results & Stats ")
+
+        self.notebook.bind(
+            "<<NotebookTabChanged>>",
+            self._on_tab_changed
+        )
         
         # --- STATUS BAR --- (Fixed here with tk.Label)
         self.status_label = tk.Label(self.root, text="Ready", bd=1, relief="sunken", anchor="w")
@@ -2486,6 +2491,32 @@ class NeutronApp:
         self.root.clipboard_append(self.txt_stats.get("1.0", tk.END).strip())
         messagebox.showinfo("Success", "Results successfully copied to clipboard.")
 
+    def _on_tab_changed(self, event):
+        """
+        Remove notification indicator when the user opens
+        the Fit Results & Stats tab.
+        """
+
+        current_tab = event.widget.select()
+
+        if current_tab == str(self.tab_stats):
+
+            self.notebook.tab(
+                self.tab_stats,
+                text="Fit Results & Stats"
+            )
+
+    def notify_new_fit_results(self):
+        """
+        Display a red notification dot on the
+        Fit Results & Stats tab.
+        """
+
+        self.notebook.tab(
+            self.tab_stats,
+            text="● Fit Results & Stats (*updated*)"
+        )
+
     def _prepare_plot_execution(self):
         """
         Perform common checks and initialize plot execution.
@@ -2959,6 +2990,7 @@ class NeutronApp:
             # COMMON POST PROCESSING
             # ==========================================================
             self.apply_plot_configuration()
+            self.notify_new_fit_results()
             if not refresh:
                 self._finalize_plot_execution(
                     numero_plot,
