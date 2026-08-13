@@ -582,7 +582,6 @@ class NeutronApp:
         naa_options = [
             ("Thermal and Epithermal Flux", "NAA_1"),
             ("Germanium histrogram spectrum", "NAA_2"),
-            ("Elemental Concentration", "NAA_3"),
         ]
         for label, p_id in naa_options:
             self.naa_submenu.add_command(
@@ -602,7 +601,8 @@ class NeutronApp:
             ("Total Transmission (Thickness)", "shielding_4"),
             ("Total Transmission ToF(Thickness)", "shielding_5"),
             ("Total Cross Section of Components Elements", "shielding_6"),
-            ("Transmission vs Energy", "shielding_7")
+            ("Transmission vs Energy", "shielding_7"),
+            ("Simulated Source", "shielding_8")
         ]
         for label, p_id in shielding_options:
             self.shielding_submenu.add_command(
@@ -1520,6 +1520,12 @@ class NeutronApp:
                     "plot8_options": False,
                 },
         "shielding_7": {
+                    "default_logx": True,
+                    "default_logy": False,
+                    "display_limits": False,
+                    "plot8_options": False,
+                },
+        "shielding_8": {
                     "default_logx": True,
                     "default_logy": False,
                     "display_limits": False,
@@ -2833,6 +2839,13 @@ class NeutronApp:
                         self.datasets,
                         **base_kwargs
                     )
+
+                elif numero_plot == "shielding_8":
+                                    self.current_fig = pt_shldg.plot_simulated_source(
+                                        fichiers,
+                                        self.datasets,
+                                        **base_kwargs
+                                    )
 
             # ==========================================================
             # STANDARD PLOTS

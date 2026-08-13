@@ -9,13 +9,13 @@ PARAMS = {
     "t_half": 2.5785,     # Radioactive half-life of Mn-56 (hours)
     "y": 0.989,           # Gamma emission intensity / yield (846.77 keV)
     "C": 0.8,             # Concentration of element in target
-    "eps": 1.0e-3,           # Detector efficiency for this energy
+    "eps": 1.56e-3,        # Detector efficiency for this energy
     "eta": 1.0,           # Isotopic abundance of Mn-55
     "F_Cd": 1.0,          # Cadmium correction factor
     "G_th": 0.984,        # Thermal self-shielding factor
     "G_epi": 0.744,       # Epithermal self-shielding factor
     "sig_th": 13.3e-24,   # Fictitious thermal cross section (cm^2)
-    "sig_epi": 14.0e-24     # Epithermal cross section / Resonance integral (cm^2)
+    "sig_epi": 14.0e-24   # Epithermal cross section / Resonance integral (cm^2)
 }
 
 def get_lambda(t_half):

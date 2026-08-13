@@ -1693,3 +1693,43 @@ def plot_transmission_vs_energy(fichiers, datasets, frame=None):
     
     if frame is not None:
         return fig
+
+def plot_simulated_source(fichiers, datasets, frame=None, **kwargs):
+    """
+    Plot the simulated neutron source spectrum.
+    """
+
+    BASE_DIR = Path(__file__).parent
+
+    ref_file = (
+        BASE_DIR
+        / "Shielding"
+        / "set-tot"
+        / "spectre_transmis_simulation.dat"
+    )
+
+    E_ref, Flux_ref_simu = load_cross_section(ref_file)
+
+    Flux_ref_simu = Flux_ref_simu / E_ref  # Normalize by energy
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    ax.plot(
+        E_ref,
+        Flux_ref_simu,
+        linewidth=1.5,
+        label="Simulated source spectrum"
+    )
+
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Flux (arbitrary units)")
+    ax.set_title("Simulated neutron source spectrum")
+
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend()
+
+    _integrer_canvas(fig, frame)
+    plt.tight_layout()
+
+    if frame is not None:
+        return fig
