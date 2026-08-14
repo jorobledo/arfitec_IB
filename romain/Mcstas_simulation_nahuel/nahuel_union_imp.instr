@@ -77,7 +77,7 @@ DEFINE INSTRUMENT template_simple(Nkds=10)
   COMPONENT polyethylene_1 = Union_make_material(
   process_string = "diffusion_polyethylene_1",
   init = "init_1",
-  my_absorption = 0.2229)
+  my_absorption = 2.641)
   AT (0,0,0) RELATIVE center_neutron_screen
 
   COMPONENT cadmium_1 = Union_make_material(
@@ -176,62 +176,63 @@ DEFINE INSTRUMENT template_simple(Nkds=10)
   AT (0,0,0) RELATIVE  center_collimator1
 
   COMPONENT diffusion_polyboron = NCrystal_process(cfg = "phases<0.8613*Polyethylene_CH2.ncmat&0.1387*BO3H3_sg2_BoricAcid.ncmat>;temp=300K")
-  AT (0,0,0) RELATIVE  center_collimator1
+  AT (0,0,0) RELATIVE  ABSOLUTE
 
   COMPONENT polyboron = Union_make_material(
   process_string = "diffusion_polyboron",
-  my_absorption = 19.3744)
-  AT (0,0,0) RELATIVE  center_collimator1
+  my_absorption = 239.66)
+  AT (0,0,0) RELATIVE  ABSOLUTE
 
   COMPONENT diffusion_borated_paraffin = NCrystal_process(cfg = "phases<0.715*solid::CH2/0.90gcm3&0.285*BO3H3_sg2_BoricAcid.ncmat>;temp=300K")
-  AT (0,0,0) RELATIVE  center_collimator1
+  AT (0,0,0) RELATIVE  ABSOLUTE
 
   COMPONENT borated_paraffin = Union_make_material(
   process_string = "diffusion_borated_paraffin",
-  my_absorption = 38.4492)
-  AT (0,0,0) RELATIVE  center_collimator1
+  my_absorption = 489.61)
+  AT (0,0,0) RELATIVE  ABSOLUTE
 
   COMPONENT diffusion_He = NCrystal_process(cfg = "gasmix::He/10bar/He_is_He3")
-  AT (0,0,0) RELATIVE  center_collimator1
+  AT (0,0,0) RELATIVE  ABSOLUTE
 
   COMPONENT He3 = Union_make_material(
   process_string = "diffusion_He",
-  my_absorption = 5333)
-  AT (0,0,0) RELATIVE  center_collimator1
+  my_absorption = 131.7)
+  AT (0,0,0) RELATIVE  ABSOLUTE
 
   COMPONENT diffusion_cd = NCrystal_process(cfg = "Cd_sg194_cod9012436.ncmat")
-  AT (0,0,0) RELATIVE  center_collimator1
+  AT (0,0,0) RELATIVE  ABSOLUTE
 
   COMPONENT cadmium = Union_make_material(
   process_string = "diffusion_cd",
   my_absorption = 10230)
-  AT (0,0,0) RELATIVE  center_collimator1
+  AT (0,0,0) RELATIVE  ABSOLUTE
 
   COMPONENT diffusion_pb = NCrystal_process(cfg = "Pb_sg225.ncmat")
-  AT (0,0,0) RELATIVE  center_collimator1
+  AT (0,0,0) RELATIVE  ABSOLUTE
 
   COMPONENT lead = Union_make_material(
   process_string = "diffusion_pb",
-  my_absorption = 0.171)
-  AT (0,0,0) RELATIVE  center_collimator1
+  my_absorption = 0.5643)
+  AT (0,0,0) RELATIVE  ABSOLUTE
 
   COMPONENT diffusion_polyethylene = NCrystal_process(cfg = "Polyethylene_CH2.ncmat")
-  AT (0,0,0) RELATIVE center_collimator1
+  AT (0,0,0) RELATIVE ABSOLUTE
 
   COMPONENT polyethylene = Union_make_material(
   process_string = "diffusion_polyethylene",
-  my_absorption = 0.2229)
-  AT (0,0,0) RELATIVE center_collimator1
+  my_absorption = 2.641)
+  AT (0,0,0) RELATIVE ABSOLUTE
 
 
   COMPONENT air_process = NCrystal_process(
   cfg = "gasmix::air/25C/1.0atm/0.30relhumidity" )
-  AT (0,0,0) RELATIVE center_collimator1
+  AT (0,0,0) RELATIVE ABSOLUTE
 
   COMPONENT air = Union_make_material(
   process_string = "air_process", my_absorption = 0.00726555,
   refraction_SLD = 4.15904E-09 )
-  AT (0,0,0) RELATIVE center_collimator1
+  AT (0,0,0) RELATIVE ABSOLUTE
+
 
 // UNION2 : fixed slit + collimator1
 
@@ -313,17 +314,14 @@ DEFINE INSTRUMENT template_simple(Nkds=10)
   
   // COMPONENT copper_2 = Union_make_material(
   // process_string = "diffusion_cu_2",
-  //  ,
-  // my_absorption = 3.78)
+  // my_absorption = 32.01)
   // AT (0,0,0) RELATIVE center_collimator1
 
   // COMPONENT sample = Union_cylinder(
   //   radius = 0.01505,
   //   yheight = 0.00665,
   //   priority = 1000,
-  //   material_string = "copper_2",
-  //      
-  // )
+  //   material_string = "copper_2")
   // AT (0,0,0.315) RELATIVE center_collimator1
   // ROTATED (90,0,0) RELATIVE center_collimator1
 // UNION2 : collimator2
