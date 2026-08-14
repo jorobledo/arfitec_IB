@@ -78,16 +78,16 @@ nloop=Nkds)
 WHEN (source = 1)
 AT (0, 0, 0) RELATIVE  ABSOLUTE
 
-// COMPONENT CompInstanceName = Source_simple(
-//   yheight = 0.15,
-//   xwidth = 0.15,
-//   dist = 0.5,
-//   focus_xw = 0.1,
-//   focus_yh = 0.1,
-//   E0 = 25,
-//   dE = 10) 
-// WHEN (source = 2)
-// AT (0, 0, 0) RELATIVE  ABSOLUTE
+COMPONENT CompInstanceName = Source_simple(
+  yheight = 0.15,
+  xwidth = 0.15,
+  dist = 0.5,
+  focus_xw = 0.1,
+  focus_yh = 0.1,
+  E0 = 25,
+  dE = 10) 
+WHEN (source = 2)
+AT (0, 0, 0) RELATIVE  ABSOLUTE
 
 // COMPONENT mcplout1 = MCPL_output( filename="myoutput1.mcpl" , weight_mode=1)
 // AT(0,0,0) RELATIVE PREVIOUS
@@ -277,43 +277,43 @@ AT (0,0,-L2/2-0.05) RELATIVE arm2
   Collimator between chopper and sample
 ==========================================================*/
 
-COMPONENT air_box = Union_box(
-    xwidth = r2_ext+0.5,
-    zdepth=L2-epsilon+0.01,
-    yheight = r2_ext+0.5,
-    priority = 5,
-    material_string = "air",
-    init = "init_2")
-AT (0,0,0) RELATIVE arm2
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT air_box = Union_box(
+//     xwidth = r2_ext+0.5,
+//     zdepth=L2-epsilon+0.01,
+//     yheight = r2_ext+0.5,
+//     priority = 5,
+//     material_string = "air",
+//     init = "init_2")
+// AT (0,0,0) RELATIVE arm2
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT cd_tube_outer_2 = Union_cylinder(
-    yheight = L2-epsilon,
-    radius = r2_ext,
-    priority = 10,
-    material_string = "cadmium_2",
-    init = "init_2")
-AT (0,0,0) RELATIVE arm2
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT cd_tube_outer_2 = Union_cylinder(
+//     yheight = L2-epsilon,
+//     radius = r2_ext,
+//     priority = 10,
+//     material_string = "cadmium_2",
+//     init = "init_2")
+// AT (0,0,0) RELATIVE arm2
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT cd_front_2 = Union_cylinder(
-    yheight = e_cd,
-    radius = r2_ext-epsilon,
-    priority = 30,
-    material_string = "cadmium_2",
-    init = "init_2")
-AT (0,0,-L2/2+e_cd/2) RELATIVE arm2
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT cd_front_2 = Union_cylinder(
+//     yheight = e_cd,
+//     radius = r2_ext-epsilon,
+//     priority = 30,
+//     material_string = "cadmium_2",
+//     init = "init_2")
+// AT (0,0,-L2/2+e_cd/2) RELATIVE arm2
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
 
-COMPONENT cd_back_2 = Union_cylinder(
-    yheight = e_cd,
-    radius = r2_ext-epsilon,
-    priority = 50,
-    material_string = "cadmium_2",
-    init = "init_2")
-AT (0,0,L2/2-e_cd/2) RELATIVE arm2
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT cd_back_2 = Union_cylinder(
+//     yheight = e_cd,
+//     radius = r2_ext-epsilon,
+//     priority = 50,
+//     material_string = "cadmium_2",
+//     init = "init_2")
+// AT (0,0,L2/2-e_cd/2) RELATIVE arm2
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
 COMPONENT poly_front_2 = Union_cylinder(
     yheight = e_poly+epsilon,
@@ -325,41 +325,41 @@ AT (0,0,-L2/2+e_poly/2+e_cd) RELATIVE arm2
 ROTATED (90,0,0) RELATIVE ABSOLUTE
 
 
-COMPONENT poly_back_2 = Union_cylinder(
-    yheight = e_poly+epsilon,
-    radius = r2_ext-2*e_cd,
-    priority = 90,
-    material_string = "polyethylene_2",
-    init = "init_2")
-AT (0,0,L2/2-e_poly/2-e_cd) RELATIVE arm2
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT poly_back_2 = Union_cylinder(
+//     yheight = e_poly+epsilon,
+//     radius = r2_ext-2*e_cd,
+//     priority = 90,
+//     material_string = "polyethylene_2",
+//     init = "init_2")
+// AT (0,0,L2/2-e_poly/2-e_cd) RELATIVE arm2
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT front_void_2 = Union_cylinder(
-    yheight = e_cd+e_poly+2*epsilon,
-    radius = r2_int_in,
-    priority = 100,
-    material_string = "Vacuum",
-    init = "init_2")
-AT (0,0,-L2/2+e_poly/2+e_cd/2) RELATIVE arm2
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT front_void_2 = Union_cylinder(
+//     yheight = e_cd+e_poly+2*epsilon,
+//     radius = r2_int_in,
+//     priority = 100,
+//     material_string = "Vacuum",
+//     init = "init_2")
+// AT (0,0,-L2/2+e_poly/2+e_cd/2) RELATIVE arm2
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT back_void_2 = Union_cylinder(
-    yheight = e_cd+e_poly+2*epsilon,
-    radius = r2_int_out,
-    priority = 110,
-    material_string = "Vacuum",
-    init = "init_2")
-AT (0,0,L2/2-e_poly/2-e_cd/2) RELATIVE arm2
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT back_void_2 = Union_cylinder(
+//     yheight = e_cd+e_poly+2*epsilon,
+//     radius = r2_int_out,
+//     priority = 110,
+//     material_string = "Vacuum",
+//     init = "init_2")
+// AT (0,0,L2/2-e_poly/2-e_cd/2) RELATIVE arm2
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT center_void_2 = Union_cylinder(
-    yheight = L2-2*e_poly-2*e_cd+2*epsilon,
-    radius = r2_ext-2*e_cd,
-    priority = 120,
-    material_string = "Vacuum",
-    init = "init_2")
-AT (0,0,0) RELATIVE arm2
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT center_void_2 = Union_cylinder(
+//     yheight = L2-2*e_poly-2*e_cd+2*epsilon,
+//     radius = r2_ext-2*e_cd,
+//     priority = 120,
+//     material_string = "Vacuum",
+//     init = "init_2")
+// AT (0,0,0) RELATIVE arm2
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
 
 COMPONENT logger_xz_colim1 = Union_logger_2D_space(
@@ -430,124 +430,124 @@ AT (0,0,0.65) RELATIVE ABSOLUTE
 // Inicio de Union Simulation 3
 // -----------------------------
 
-COMPONENT arm3 = Arm()
-AT (0,0,1.2235) RELATIVE arm2
+// COMPONENT arm3 = Arm()
+// AT (0,0,1.2235) RELATIVE arm2
 
-COMPONENT init_3 = Union_init()
-AT (0,0,0) RELATIVE arm3
+// COMPONENT init_3 = Union_init()
+// AT (0,0,0) RELATIVE arm3
 
-COMPONENT diffusion_polyethylene_3 = NCrystal_process(cfg = "Polyethylene_CH2.ncmat", init="init_3")
-AT (0,0,0) RELATIVE arm3
+// COMPONENT diffusion_polyethylene_3 = NCrystal_process(cfg = "Polyethylene_CH2.ncmat", init="init_3")
+// AT (0,0,0) RELATIVE arm3
 
-COMPONENT diffusion_cd_3 = NCrystal_process(cfg = "Cd_sg194_cod9012436.ncmat", init="init_3")
-AT (0,0,0) RELATIVE arm3
+// COMPONENT diffusion_cd_3 = NCrystal_process(cfg = "Cd_sg194_cod9012436.ncmat", init="init_3")
+// AT (0,0,0) RELATIVE arm3
 
-COMPONENT polyethylene_3 = Union_make_material(
- process_string = "diffusion_polyethylene_3",
- init = "init_3",
- my_absorption = 0.2229)
-AT (0,0,0) RELATIVE arm3
+// COMPONENT polyethylene_3 = Union_make_material(
+//  process_string = "diffusion_polyethylene_3",
+//  init = "init_3",
+//  my_absorption = 0.2229)
+// AT (0,0,0) RELATIVE arm3
 
-COMPONENT cadmium_3 = Union_make_material(
- process_string = "diffusion_cd_3",
- init = "init_3",
- my_absorption = 10230)
-AT (0,0,0) RELATIVE arm3
+// COMPONENT cadmium_3 = Union_make_material(
+//  process_string = "diffusion_cd_3",
+//  init = "init_3",
+//  my_absorption = 10230)
+// AT (0,0,0) RELATIVE arm3
 
 
-COMPONENT cd_tube_outer_3 = Union_cylinder(
-    yheight = L3-epsilon,
-    radius = r3_ext,
-    priority = 10,
-    material_string = "cadmium_3",
-    init = "init_3")
-AT (0,0,0) RELATIVE arm3
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT cd_tube_outer_3 = Union_cylinder(
+//     yheight = L3-epsilon,
+//     radius = r3_ext,
+//     priority = 10,
+//     material_string = "cadmium_3",
+//     init = "init_3")
+// AT (0,0,0) RELATIVE arm3
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT cd_front_3 = Union_cylinder(
-    yheight = e_cd,
-    radius = r3_ext-epsilon,
-    priority = 30,
-    material_string = "cadmium_3",
-    init = "init_3")
-AT (0,0,-L3/2+e_cd/2) RELATIVE arm3
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT cd_front_3 = Union_cylinder(
+//     yheight = e_cd,
+//     radius = r3_ext-epsilon,
+//     priority = 30,
+//     material_string = "cadmium_3",
+//     init = "init_3")
+// AT (0,0,-L3/2+e_cd/2) RELATIVE arm3
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT cd_back_3 = Union_cylinder(
-    yheight = e_cd,
-    radius = r3_ext-epsilon,
-    priority = 50,
-    material_string = "cadmium_3",
-    init = "init_3")
-AT (0,0,L3/2-e_cd/2) RELATIVE arm3
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT cd_back_3 = Union_cylinder(
+//     yheight = e_cd,
+//     radius = r3_ext-epsilon,
+//     priority = 50,
+//     material_string = "cadmium_3",
+//     init = "init_3")
+// AT (0,0,L3/2-e_cd/2) RELATIVE arm3
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT poly_front_3 = Union_cylinder(
-    yheight = e_poly+epsilon,
-    radius = r3_ext-2*e_cd,
-    priority = 70,
-    material_string = "polyethylene_3",
-    init = "init_3")
-AT (0,0,-L3/2+e_poly/2+e_cd) RELATIVE arm3
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT poly_front_3 = Union_cylinder(
+//     yheight = e_poly+epsilon,
+//     radius = r3_ext-2*e_cd,
+//     priority = 70,
+//     material_string = "polyethylene_3",
+//     init = "init_3")
+// AT (0,0,-L3/2+e_poly/2+e_cd) RELATIVE arm3
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT poly_back_3 = Union_cylinder(
-    yheight = e_poly+epsilon,
-    radius = r3_ext-2*e_cd,
-    priority = 90,
-    material_string = "polyethylene_3",
-    init = "init_3")
-AT (0,0,L3/2-e_poly/2-e_cd) RELATIVE arm3
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT poly_back_3 = Union_cylinder(
+//     yheight = e_poly+epsilon,
+//     radius = r3_ext-2*e_cd,
+//     priority = 90,
+//     material_string = "polyethylene_3",
+//     init = "init_3")
+// AT (0,0,L3/2-e_poly/2-e_cd) RELATIVE arm3
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT front_void_3 = Union_cylinder(
-    yheight = e_cd+e_poly+2*epsilon,
-    radius = r3_int,
-    priority = 100,
-    material_string = "Vacuum",
-    init = "init_3")
-AT (0,0,-L3/2+e_poly/2+e_cd/2) RELATIVE arm3
-ROTATED (90,0,0) RELATIVE ABSOLUTE
+// COMPONENT front_void_3 = Union_cylinder(
+//     yheight = e_cd+e_poly+2*epsilon,
+//     radius = r3_int,
+//     priority = 100,
+//     material_string = "Vacuum",
+//     init = "init_3")
+// AT (0,0,-L3/2+e_poly/2+e_cd/2) RELATIVE arm3
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT back_void_3 = Union_cylinder(
-    yheight = e_cd+e_poly+2*epsilon,
-    radius = r3_int,
-    priority = 110,
-    material_string = "Vacuum",
-    init = "init_3")
-AT (0,0,L3/2-e_poly/2-e_cd/2) RELATIVE arm3
-ROTATED (90,0,0) RELATIVE ABSOLUTE
-
-COMPONENT center_void_3 = Union_cylinder(
-    yheight = L3-2*e_poly-2*e_cd+2*epsilon,
-    radius = r3_ext-2*e_cd,
-    priority = 120,
-    material_string = "Vacuum",
-    init = "init_3")
-AT (0,0,0) RELATIVE arm3
-ROTATED (90,0,0) RELATIVE ABSOLUTE
-
-COMPONENT master_3 = Union_master(init = "init_3")
-AT (0,0,0) RELATIVE arm3
-
-COMPONENT stop_3 = Union_stop()
-AT (0,0,0) RELATIVE arm3
-
-// COMPONENT arm_mcplout6 = Arm()
+// COMPONENT back_void_3 = Union_cylinder(
+//     yheight = e_cd+e_poly+2*epsilon,
+//     radius = r3_int,
+//     priority = 110,
+//     material_string = "Vacuum",
+//     init = "init_3")
 // AT (0,0,L3/2-e_poly/2-e_cd/2) RELATIVE arm3
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT tof = TOF_monitor(
-  nt = 2000,
-  xwidth = 0.1524,
-  yheight = 0.0762,
-  tmin = -5000,
-  tmax = 10000,
-  restore_neutron=1
-)
-AT (0,0,0.3615) RELATIVE arm3
+// COMPONENT center_void_3 = Union_cylinder(
+//     yheight = L3-2*e_poly-2*e_cd+2*epsilon,
+//     radius = r3_ext-2*e_cd,
+//     priority = 120,
+//     material_string = "Vacuum",
+//     init = "init_3")
+// AT (0,0,0) RELATIVE arm3
+// ROTATED (90,0,0) RELATIVE ABSOLUTE
 
-COMPONENT mcplout6 = MCPL_output( filename="myoutput6.mcpl", weight_mode=1 )
-AT (0,0,2.0) RELATIVE ABSOLUTE
+// COMPONENT master_3 = Union_master(init = "init_3")
+// AT (0,0,0) RELATIVE arm3
+
+// COMPONENT stop_3 = Union_stop()
+// AT (0,0,0) RELATIVE arm3
+
+// // COMPONENT arm_mcplout6 = Arm()
+// // AT (0,0,L3/2-e_poly/2-e_cd/2) RELATIVE arm3
+
+// COMPONENT tof = TOF_monitor(
+//   nt = 2000,
+//   xwidth = 0.1524,
+//   yheight = 0.0762,
+//   tmin = -5000,
+//   tmax = 10000,
+//   restore_neutron=1
+// )
+// AT (0,0,0.3615) RELATIVE arm3
+
+// COMPONENT mcplout6 = MCPL_output( filename="myoutput6.mcpl", weight_mode=1 )
+// AT (0,0,2.0) RELATIVE ABSOLUTE
 
 
 FINALLY

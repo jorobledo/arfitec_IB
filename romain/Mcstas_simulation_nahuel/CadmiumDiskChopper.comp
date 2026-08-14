@@ -195,9 +195,9 @@ TRACE
   double T;
   int i;
 
-  if ((x>squared_limit)||(x<-squared_limit)||(y>squared_limit)||(y<-squared_limit)){
-    ABSORB;
-  }
+  // if ((x>squared_limit)||(x<-squared_limit)||(y>squared_limit)||(y<-squared_limit)){
+  //   ABSORB;
+  // }
 
 
   /* énergie en eV */
