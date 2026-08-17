@@ -693,29 +693,143 @@ def plot_11(fichiers, datasets, fichier_ref="", frame=None):
     _integrer_canvas(fig, frame)
     return fig
 
-def plot_12(fichiers, datasets, fichier_ref="", frame=None):
-    """Takes interactive variables directly as arguments."""
-    thickness = PARAMS['thickness']
-    atom_density = PARAMS['atom_density']
-    E_min = PARAMS['E_min']
-    E_max = PARAMS['E_max']
-    
-    fig, ax = plt.subplots(figsize=(12, 5))
-    
-    chemin_complet_ref = os.path.join("data", fichier_ref)
-    E_ref, sigma_ref, unc_ref = np.loadtxt(chemin_complet_ref, unpack=True)
-    mask_ref = (E_ref * 1e-3 >= E_min) & (E_ref * 1e-3 <= E_max)
-    
-    p_ref = ax.errorbar(E_ref[mask_ref] * 1e-3, sigma_ref[mask_ref], yerr=unc_ref[mask_ref], 
-                         fmt='-', color='black', linewidth=1.5, label=f"Ref: {fichier_ref}")
-    p_ref[2][0].set_color((0, 0, 0, 0.2))
-        
-    ax.set_xscale('log'); ax.set_xlabel('Energy (eV)'); ax.set_ylabel('Cross section (barns)')
-    ax.legend(); ax.grid(True, which="both", linestyle="--")
-    
-    _integrer_canvas(fig, frame)
-    return fig
+def plot_12(fichiers, datasets, frame=None):
+    """
+    Plot neutron flux normalized by a monitor.
 
+    For each selected data file:
+        normalized_flux = corrected_flux / monitor_flux
+
+    Monitor files must be named:
+        mon-<data_filename>
+
+    Example:
+        data01.dat
+        mon-data01.dat
+
+    Parameters
+    ----------
+    fichiers : list
+        Selected files.
+
+    Returns
+    -------
+    fig, stats
+    """
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from pathlib import Path
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    stats = {}
+
+    # ------------------------------------------------------
+    # Separate data files and monitor files
+    # ------------------------------------------------------
+    fichiers = [Path(f) for f in fichiers]
+
+    monitor_files = {
+        f.name[5:]: f
+        for f in fichiers
+        if f.name.startswith("mon2_")
+    }
+
+    data_files = [
+        f for f in fichiers
+        if not f.name.startswith("mon2_")
+    ]
+
+    # ------------------------------------------------------
+    # Process each data file
+    # ------------------------------------------------------
+    for fichier in data_files:
+
+        # --------------------------------------------------
+        # Find associated monitor
+        # --------------------------------------------------
+        if fichier.name not in monitor_files:
+            print(
+                f"No monitor found for '{fichier.name}'. "
+                f"Expected: 'mon2_{fichier.name}'"
+            )
+            continue
+
+        monitor_file = monitor_files[fichier.name]
+
+        data = datasets[str(fichier)]
+
+        # --------------------------------------------------
+        # Get corrected flux
+        # --------------------------------------------------
+        tof = data["tof_flux"]["all"]["method1"]["ToF"]
+        flux = data["tof_flux"]["all"]["method1"]["flux"]
+
+        # --------------------------------------------------
+        # Load monitor
+        # --------------------------------------------------
+        monitor_path = Path("detector-monitor") / monitor_file
+        monitor_data = np.loadtxt(monitor_path, skiprows=15)
+
+        monitor_channel = monitor_data[:, 0]
+        monitor_flux = apply_grouping_methode1(monitor_data[:, 1])
+
+        # --------------------------------------------------
+        # Check dimensions
+        # --------------------------------------------------
+        if len(tof) != len(monitor_flux):
+            raise ValueError(
+                f"Size mismatch between '{fichier.name}' "
+                f"and '{monitor_file.name}': "
+                f"{len(tof)} vs {len(monitor_flux)} points."
+            )
+
+        # --------------------------------------------------
+        # Normalize
+        # --------------------------------------------------
+        flux_normalized = np.divide(
+            flux,
+            monitor_flux,
+            out=np.zeros_like(flux, dtype=float),
+            where=monitor_flux != 0
+        )
+        # flux_normalized = apply_grouping_methode1(flux_normalized)
+        # --------------------------------------------------
+        # Plot
+        # --------------------------------------------------
+        ax.plot(
+            tof * 1e6,
+            flux_normalized,
+            label=fichier.stem
+        )
+
+        # --------------------------------------------------
+        # Statistics
+        # --------------------------------------------------
+        stats[fichier.name] = {
+            "monitor": monitor_file.name,
+            "min": float(np.min(flux_normalized)),
+            "max": float(np.max(flux_normalized)),
+            "mean": float(np.mean(flux_normalized)),
+        }
+
+    # ------------------------------------------------------
+    # Plot formatting
+    # ------------------------------------------------------
+    ax.set_xlabel("Time-of-Flight (µs)")
+    ax.set_ylabel("Normalized Flux")
+    ax.set_title("Neutron Flux Normalized by Monitor")
+
+    ax.grid(True, which="both", alpha=0.3)
+
+    if len(stats) > 1:
+        ax.legend()
+
+    _integrer_canvas(fig, frame)
+
+    fig.tight_layout()
+
+    return fig, stats
 
 
 def plot_flux_tof(fichiers, datasets, frame=None, **kwargs):
@@ -933,3 +1047,5 @@ def plot_flux_energy(fichiers, datasets, frame=None, **kwargs):
     _integrer_canvas(fig, frame)
 
     return fig
+
+

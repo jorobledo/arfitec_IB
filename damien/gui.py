@@ -572,6 +572,7 @@ class NeutronApp:
             ("9 - Reactor Power Comparison", "9"),
             ("10 - Reactor Power vs Neutron Rate", "10"),
             ("11 - Cross Section", "11"),
+            ("12 - Monitor Normalised Flux", "12"),
         ]
         for label, p_id in tof_options:
             self.tof_submenu.add_command(
@@ -1422,6 +1423,13 @@ class NeutronApp:
 
         "11": {
             "default_logx": True,
+            "default_logy": False,
+            "display_limits": True,
+            "plot8_options": False,
+        },
+
+        "12": {
+            "default_logx": False,
             "default_logy": False,
             "display_limits": True,
             "plot8_options": False,
@@ -2919,6 +2927,15 @@ class NeutronApp:
                 func = getattr(pt, f"plot_{numero_plot}")
 
                 self.current_fig = func(
+                    fichiers,
+                    self.datasets,
+                    **base_kwargs
+                )
+            elif numero_plot in ["12"]:
+
+                func = getattr(pt, f"plot_{numero_plot}")
+                
+                self.current_fig, self.plot_stats = func(
                     fichiers,
                     self.datasets,
                     **base_kwargs
