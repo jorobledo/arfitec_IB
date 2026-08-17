@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import stats
 from scipy.optimize import curve_fit
 import matplotlib.colors as mcolors
 from matplotlib.widgets import Slider, Button,CheckButtons
@@ -11,7 +12,7 @@ import tkinter as tk
 from physics import Na, k_b, R_gaz, R_tube, masse_n, angle, atom_dens, eV
 from physics import model_epi_pure, fit_maxwellian_grid_search, maxwell_model_tof, model_tof_epi, calculate_r_squared
 from physics import maxwell_model_E, maxwell_model_E_corr, maxwell_epi_analytique_E, maxwell_epi_analytique_E_corr
-from physics import cross_section, transmission_coeff, apply_grouping_methode1, apply_grouping_methode2
+from physics import cross_section, transmission_coeff, apply_grouping_methode1, apply_grouping_methode2, remove_background
 from physics import compute_cross_section_uncertainty, read_reference_file, compute_amp_init_from_ref, compute_grouping_cross_section_m2
 from physics import compute_fit_results_from_dataset, compute_plot8_models
 
@@ -795,7 +796,60 @@ def plot_flux_tof(fichiers, datasets, frame=None, **kwargs):
     
     _integrer_canvas(fig, frame)
 
-    return fig
+    # ==========================================================
+    # Statistics
+    # ==========================================================
+
+    stats = {}
+
+    for nom in fichiers:
+
+        data = datasets[nom]
+
+        flux_displayed = data["tof_flux"][correction_mode][grouping_method]["flux"]
+        unc_displayed  = data["tof_flux"][correction_mode][grouping_method]["unc"]
+        tof_displayed  = data["tof_flux"][correction_mode][grouping_method]["ToF"]
+
+        # Intégrale du spectre affiché
+        integral_displayed = np.trapezoid(
+            flux_displayed[mask],
+            tof_displayed[mask]
+        )
+
+        # Maximum du spectre affiché
+        idx_max = np.argmax(flux_displayed[mask])
+
+        max_flux = flux_displayed[idx_max]
+        max_tof  = tof_displayed[idx_max] * 1e6   # µs
+
+        # Ratio DeadTime sans BG / avec BG
+        flux_dt = data["tof_flux"]["deadtime"]["method1"]["flux"][mask]
+        tof_dt  = data["tof_flux"]["deadtime"]["method1"]["ToF"][mask]
+
+        flux_dt_without_background = remove_background(flux_dt)
+        tof_dt_without_background  = data["tof_flux"]["all"]["method1"]["ToF"][mask]
+
+        integral_dt = np.trapezoid(flux_dt, tof_dt)
+        integral_dt_without_background = np.trapezoid(flux_dt_without_background, tof_dt_without_background)
+
+        ratio_background = (
+            integral_dt_without_background / integral_dt * 100
+            if integral_dt != 0
+            else np.nan
+        )
+
+        stats[os.path.basename(nom)] = {
+
+            "integral_displayed": integral_displayed,
+
+            "ratio_background": ratio_background,
+
+            "max_flux": max_flux,
+
+            "max_tof": max_tof,
+        }
+
+    return fig, stats
 
 
 def plot_flux_energy(fichiers, datasets, frame=None, **kwargs):

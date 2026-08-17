@@ -449,6 +449,7 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
         H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
         O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.dat"
         Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
+        Cd_file = BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat"
 
         # ------------------------------------------------------
         # Experimental incident spectrum
@@ -472,12 +473,13 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
             atomic_density = data["atomic_density"]
 
             # Recompute sigma_mix for this concentration
-            E_mix, sigma_mix = build_sigma_mix_from_files(
+            E_mix, sigma_mix, sigma_Cd, sigma_CH2 = build_sigma_mix_from_files(
                 B_file,
                 C_file,
                 H_file,
                 O_file,
                 Si_file,
+                Cd_file,
                 fract_B4C,
                 fract_PDMS,
                 fract_SiO2,

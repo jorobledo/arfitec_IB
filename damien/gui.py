@@ -1797,14 +1797,46 @@ class NeutronApp:
     def _process_plot_statistics(self, numero_plot, fichiers, choix):
         """Handles extraction, translation, and display of numerical data according to plot type."""
         # Default case if no results are expected
-        if numero_plot not in ["6", "7.1", "7.2", "8"]:
+        if numero_plot not in ["6", "7.1", "7.2", "8", "flux_tof"]:
             self.update_stats_display("No fit has been executed yet. Run a Maxwellian Fit to display numerical results here.")
             return
 
         summary = "==================================================\n"
+
+
+        if numero_plot == "flux_tof":
+
+            summary += " TOF FLUX STATISTICS\n"
+            summary += "==================================================\n\n"
+
+            for filename, values in self.plot_stats.items():
+
+                summary += f"File : {filename}\n"
+
+                summary += (
+                    f"  Integral : "
+                    f"{values['integral_displayed']:.4e}\n"
+                )
+
+                summary += (
+                    f"  Max flux : "
+                    f"{values['max_flux']:.4e}\n"
+                )
+
+                summary += (
+                    f"  Peak ToF : "
+                    f"{values['max_tof']:.2f} µs\n"
+                )
+
+                summary += (
+                    f"  BG ratio : "
+                    f"{values['ratio_background']:.4f}%\n"
+                )
+
+                summary += "\n"
         
         # --- Formatage pour le Plot 6 ---
-        if numero_plot == "6":
+        elif numero_plot == "6":
             from physics import fit_maxwellian_grid_search
             summary += " GRID SEARCH MAXWELLIAN FIT RESULTS\n"
             summary += "==================================================\n\n"
@@ -3023,17 +3055,17 @@ class NeutronApp:
 
         import plot as pt
 
-        self.current_fig = pt.plot_flux_tof(
+        self.current_fig, self.plot_stats = pt.plot_flux_tof(
             fichiers,
             self.datasets,
             frame = self.plot_frame,
             **self._get_plot_kwargs()
 
         )
-        
+        self.notify_new_fit_results()
         self._apply_display_options()
         if not refresh:
-            self._finalize_plot_execution(numero_plot="ToF_Flux", fichiers=fichiers, choix="ToF-Flux")
+            self._finalize_plot_execution(numero_plot="flux_tof", fichiers=fichiers, choix="ToF-Flux")
 
     def execute_flux_energy(self, refresh=False):
         """Plot the corrected neutron flux in the Energy domain."""
@@ -3061,7 +3093,7 @@ class NeutronApp:
 
         self._apply_display_options()
         if not refresh:
-            self._finalize_plot_execution(numero_plot="Energy_Flux", fichiers=fichiers, choix="Energy-Flux")
+            self._finalize_plot_execution(numero_plot="flux_energy", fichiers=fichiers, choix="Energy-Flux")
 
     def _open_doc_link(self, current_file, target):
         """
