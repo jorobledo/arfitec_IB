@@ -85,8 +85,8 @@ def compare_flux(fichiers, datasets, frame=None):
 
     # Insert Data rows
     table.insert("", "end", values=("Neutron Activation Analysis (NAA)", f"{phi_th_naa:.4e}", f"{phi_epi_naa:.4e}"))
-    table.insert("", "end", values=("ToF Spectrometry (Integration)", f"{phi_th_tof:.4e}", f"{phi_epi_tof:.4e}"))
-    table.insert("", "end", values=("Flux Ratio (NAA / ToF)", f"{ratio_th:.4f}", f"{ratio_epi:.4f}"))
+    table.insert("", "end", values=("ToF Spectrometry (Integration)", f"{phi_th_tof:.4e}", "None"))
+    table.insert("", "end", values=("Flux Ratio (NAA / ToF)", f"{ratio_th:.4f}", "None"))
 
     # Simple text info box below table
     info_box = tk.Label(
