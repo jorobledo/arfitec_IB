@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from physics_NAA import PARAMS, get_R, get_flux, get_lambda, model_tof_epi_NAA
 from physics import integrate_thermal_epithermal_flux
 from plot import _integrer_canvas
-
+from pathlib import Path
 
 
 def compare_flux(fichiers, datasets, frame=None):
@@ -177,4 +177,162 @@ def plot_spectrum_spe(fichier, frame=None):
     _integrer_canvas(fig, frame)
     return fig
 
+def plot_Ge_efficiency(fichier, frame=None):
 
+    # ==========================================================
+    # Files
+    # ==========================================================
+    BASE_DIR = Path(__file__).parent
+    NAA_DIR = BASE_DIR / "NAA"
+
+    file_9_95 = NAA_DIR / "efi_HPGe_d9_95cm.dat"
+    file_25_15 = NAA_DIR / "efi_HPGe_d25_15cm.dat"
+
+    # ==========================================================
+    # Load data
+    # ==========================================================
+    data_9_95 = np.loadtxt(file_9_95)
+    data_25_15 = np.loadtxt(file_25_15)
+
+    E_9_95 = data_9_95[:, 0]
+    eff_9_95 = data_9_95[:, 1]
+
+    E_25_15 = data_25_15[:, 0]
+    eff_25_15 = data_25_15[:, 1]
+
+    # ==========================================================
+    # Target energy
+    # ==========================================================
+    E_target = 834.8  # keV
+
+    # Linear interpolation in energy
+    efficiency_9_95 = np.interp(
+        E_target,
+        E_9_95,
+        eff_9_95
+    )
+
+    efficiency_25_15 = np.interp(
+        E_target,
+        E_25_15,
+        eff_25_15
+    )
+
+    # ==========================================================
+    # Linear interpolation in distance
+    # ==========================================================
+    d1 = 9.95
+    d2 = 25.15
+    d_target = 15.5
+
+    efficiency_15_5 = (
+        efficiency_9_95
+        + (efficiency_25_15 - efficiency_9_95)
+        * (d_target - d1)
+        / (d2 - d1)
+    )
+
+    # ==========================================================
+    # Plot
+    # ==========================================================
+    fig, ax = plt.subplots(figsize=(9, 6))
+
+    # ----------------------------------------------------------
+    # Efficiency curves
+    # ----------------------------------------------------------
+    ax.plot(
+        E_9_95,
+        eff_9_95,
+        label="d = 9.95 cm"
+    )
+
+    ax.plot(
+        E_25_15,
+        eff_25_15,
+        label="d = 25.15 cm"
+    )
+
+    # ----------------------------------------------------------
+    # Points at 834.8 keV
+    # ----------------------------------------------------------
+    ax.scatter(
+        E_target,
+        efficiency_9_95,
+        s=70,
+        zorder=5
+    )
+
+    ax.scatter(
+        E_target,
+        efficiency_25_15,
+        s=70,
+        zorder=5
+    )
+
+    # ----------------------------------------------------------
+    # Vertical line at 834.8 keV
+    # ----------------------------------------------------------
+    ax.axvline(
+        E_target,
+        linestyle="--",
+        alpha=0.5
+    )
+
+    # ----------------------------------------------------------
+    # Distance interpolation
+    # ----------------------------------------------------------
+    ax.plot(
+        [E_target, E_target],
+        [efficiency_9_95, efficiency_25_15],
+        linestyle="--",
+        alpha=0.7,
+        label="Distance interpolation"
+    )
+
+    # ----------------------------------------------------------
+    # Interpolated point at 15.5 cm
+    # ----------------------------------------------------------
+    ax.scatter(
+        E_target,
+        efficiency_15_5,
+        s=130,
+        marker="x",
+        zorder=6,
+        label="Interpolated value (15.5 cm)"
+    )
+
+    # ----------------------------------------------------------
+    # Annotation
+    # ----------------------------------------------------------
+    ax.annotate(
+        f"d = 15.5 cm\n"
+        f"E = 834.8 keV\n"
+        f"ε = {efficiency_15_5:.5g}",
+        xy=(E_target, efficiency_15_5),
+        xytext=(25, 25),
+        textcoords="offset points",
+        arrowprops=dict(arrowstyle="->"),
+        fontsize=10
+    )
+
+    # ==========================================================
+    # Formatting
+    # ==========================================================
+    ax.set_xscale("log")
+
+    ax.set_xlabel("Energy (keV)")
+    ax.set_ylabel("Efficiency")
+    ax.set_title("HPGe detector efficiency")
+
+    ax.grid(
+        True,
+        which="both",
+        alpha=0.3
+    )
+
+    ax.legend()
+
+    plt.tight_layout()
+    _integrer_canvas(fig, frame)
+
+    return fig

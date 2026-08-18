@@ -588,6 +588,7 @@ class NeutronApp:
         naa_options = [
             ("Thermal and Epithermal Flux", "NAA_1"),
             ("Germanium histrogram spectrum", "NAA_2"),
+            ("HPGe Efficiency", "NAA_3"),
         ]
         for label, p_id in naa_options:
             self.naa_submenu.add_command(
@@ -1481,6 +1482,13 @@ class NeutronApp:
         "NAA_2": {
             "default_logx": False,
             "default_logy": True,
+            "display_limits": False,
+            "plot8_options": False,
+        },
+
+        "NAA_3": {
+            "default_logx": True,
+            "default_logy": False,
             "display_limits": False,
             "plot8_options": False,
         },
@@ -2841,9 +2849,8 @@ class NeutronApp:
                     )
 
                 elif numero_plot == "NAA_3":
-                    self.current_fig = pt_naa.plot_concentration(
+                    self.current_fig = pt_naa.plot_Ge_efficiency(
                         fichiers,
-                        self.datasets,
                         **base_kwargs
                     )
 
