@@ -1039,7 +1039,7 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
             BASE_DIR
             / "Shielding"
             / "set-tot"
-            / "spectre_transmis_simulation.dat"
+            / "spectrum_avant_chopper.dat"
         )
 
         E_mix, sigma_mix, sigma_Cd, sigma_CH2 = build_sigma_mix_from_files(
@@ -1707,12 +1707,12 @@ def plot_simulated_source(fichiers, datasets, frame=None, **kwargs):
         BASE_DIR
         / "Shielding"
         / "set-tot"
-        / "spectre_transmis_simulation.dat"
+        / "spectrum_avant_chopper.dat"
     )
 
     E_ref, Flux_ref_simu = load_cross_section(ref_file)
 
-    Flux_ref_simu = Flux_ref_simu / E_ref  # Normalize by energy
+    Flux_ref_simu = Flux_ref_simu
 
     fig, ax = plt.subplots(figsize=(8, 5))
 
