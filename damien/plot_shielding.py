@@ -925,6 +925,9 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
         markersize=6,
         label="B4C transmission"
     )
+    ax.axhline(y=0.1, linestyle="--", color='gray', alpha=0.5)
+    ax.axhline(y=0.03, linestyle="--", color='gray', alpha=0.5)
+    ax.axhline(y=0.01, linestyle="--", color='gray', alpha=0.5)
 
     # ==========================================================
     # Plot comparison points
@@ -1556,8 +1559,8 @@ def plot_total_cross_section(fichiers, frame=None):
         "Si": BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat",
         "Cd": BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat",
         "B":  BASE_DIR / "Shielding" / "set-tot" / "B"  / "sig-tot-B.dat",
-        "H2": BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.txt",
-        "O2": BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt",
+        # "H2": BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.txt",
+        # "O2": BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt",
     }
 
     fig, ax = plt.subplots(figsize=(12, 5))

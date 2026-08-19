@@ -146,7 +146,7 @@ def plot_spectrum_spe(fichier, frame=None):
 
     # ---------------- Plot ----------------
 
-    fig, ax = plt.subplots(12,5)
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     # Histogram
     ax.step(energy, counts, where="mid", color="navy", label='Spectrum')

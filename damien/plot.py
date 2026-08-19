@@ -282,25 +282,25 @@ def plot_7(fichiers, datasets, choice_sub=7.1, frame=None):
         
         if choice_sub == 7.1:            
             fig, ax = plt.subplots(figsize=(12, 5))
-            ax.errorbar(data['ToF'][mask_1] * 1e6, data['flux_tof'][mask_1], yerr=data['unc_tof'][mask_1], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected')
+            ax.errorbar(data['ToF'][mask_1] * 1e6, data['flux_tof'][mask_1], yerr=data['unc_tof'][mask_1], fmt='.', markersize=4, color='blue', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected')
             ax.plot(data['ToF'][mask_1] * 1e6, flux_modele_1[mask_1], '-', color='black', linewidth=2, label=f'Fit Maxwellian 1 (a1 = {a1_tof_pure_1:.1f}, R² = {r_squared_1:.2f})')
-            ax.errorbar(data['ToF_grouped'][mask_2] * 1e6, data['flux_tof_grouped'][mask_2], yerr=data['unc_tof_grouped'][mask_2], fmt='.', markersize=4, color='blue', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected 2')
-            ax.plot(data['ToF_grouped'][mask_2] * 1e6, flux_modele_2[mask_2], '-', color='red', linewidth=2, label=f'Fit Maxwellian 2 (a1 = {a1_tof_pure_2:.1f}, R² = {r_squared_2:.2f})')
+            # ax.errorbar(data['ToF_grouped'][mask_2] * 1e6, data['flux_tof_grouped'][mask_2], yerr=data['unc_tof_grouped'][mask_2], fmt='.', markersize=4, color='blue', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected 2')
+            # ax.plot(data['ToF_grouped'][mask_2] * 1e6, flux_modele_2[mask_2], '-', color='red', linewidth=2, label=f'Fit Maxwellian 2 (a1 = {a1_tof_pure_2:.1f}, R² = {r_squared_2:.2f})')
             
             ax.set_xlabel('time (us)')
             ax.set_ylabel('counts')
             ax.set_title('Time of flight spectrum with optimal Maxwellian fit') 
-            ax.legend(labelcolor=['black', 'red', 'purple', 'blue'], markerscale=2.0, fontsize=8)
+            ax.legend(markerscale=2.0, fontsize=8)
             ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)
             _integrer_canvas(fig, frame)
             
         elif choice_sub == 7.2:
-            fig, ax = plt.subplots(figsize=(12, 6))
+            fig, ax = plt.subplots(figsize=(12, 5))
             ax.errorbar(data['ToF'][mask_1] * 1e6, data['flux_tof'][mask_1], yerr=data['unc_tof'][mask_1], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected')
             ax.plot(data['ToF'][mask_1] * 1e6, flux_modele_1[mask_1], '--', color='blue', linewidth=1.5, label=f'Fit Maxwellian pure (T = {T_1:.1f} K, R² = {r_squared_1:.2f})')
             ax.plot(data['ToF'][mask_1] * 1e6, flux_modele_1_epi[mask_1], '--', color='red', linewidth=2, label=f'Fit Maxwellian + Epi (T = {T_1_epi:.1f} K, R² = {r_squared_1_epi:.2f})')
             ax.plot(data['ToF'][mask_1] * 1e6, flux_epi_pure[mask_1], "--", color='green', label='Epithermal contribution')
-            ax.plot(data['ToF'][mask_1] * 1e6, flux_luis[mask_1], "--", color='orange', label='Luis Fit')
+            ax.plot(data['ToF'][mask_1] * 1e6, flux_luis[mask_1], "--", color='orange', label='Manual Fit')
             
             ax.set_xlabel('time (us)')
             ax.set_ylabel('counts')
