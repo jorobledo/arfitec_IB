@@ -3,7 +3,7 @@ from tkinter import ttk
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from physics_NAA import PARAMS, get_R, get_flux, get_lambda, model_tof_epi_NAA
+from physics_NAA import PARAMS, get_R, get_flux, get_lambda, model_tof_epi_NAA, compute_NAA_flux_spectrum
 from physics import integrate_thermal_epithermal_flux
 from plot import _integrer_canvas
 from pathlib import Path
@@ -146,7 +146,7 @@ def plot_spectrum_spe(fichier, frame=None):
 
     # ---------------- Plot ----------------
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(12,5)
 
     # Histogram
     ax.step(energy, counts, where="mid", color="navy", label='Spectrum')
@@ -235,7 +235,7 @@ def plot_Ge_efficiency(fichier, frame=None):
     # ==========================================================
     # Plot
     # ==========================================================
-    fig, ax = plt.subplots(figsize=(9, 6))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     # ----------------------------------------------------------
     # Efficiency curves
@@ -323,6 +323,130 @@ def plot_Ge_efficiency(fichier, frame=None):
     ax.set_xlabel("Energy (keV)")
     ax.set_ylabel("Efficiency")
     ax.set_title("HPGe detector efficiency")
+
+    ax.grid(
+        True,
+        which="both",
+        alpha=0.3
+    )
+
+    ax.legend()
+
+    plt.tight_layout()
+    _integrer_canvas(fig, frame)
+
+    return fig
+
+
+def plot_NAA_flux_modelisation(fichier, frame=None):
+
+    T=293.0
+    n_points = 1000
+    E_min=1e-3
+    E_max=1e3
+    alpha = 0.0
+
+    # ==========================================================
+    # 1. PHYSICAL COMPUTATIONS
+    # ==========================================================
+
+    try:
+
+        # ------------------------------------------------------
+        # Reaction rate - bare sample
+        # ------------------------------------------------------
+        r_bare = get_R(
+            counts=66000,
+            t_i=12360,
+            t_d=3120,
+            t_m=3600,
+            m=PARAMS["m_mn"]
+        )
+
+        # ------------------------------------------------------
+        # Reaction rate - Cd-covered sample
+        # ------------------------------------------------------
+        r_cadmium = get_R(
+            counts=2700,
+            t_i=17160,
+            t_d=1200,
+            t_m=54000,
+            m=PARAMS["m_mn_cd"]
+        )
+
+        # ------------------------------------------------------
+        # Thermal and epithermal fluxes from NAA
+        # ------------------------------------------------------
+        phi_th_naa, phi_epi_naa = get_flux(
+            r_bare,
+            r_cadmium
+        )
+
+    except Exception as e:
+
+        print(f"NAA flux calculation error: {e}")
+
+        # Fallback values to prevent GUI crash
+        phi_th_naa = 0.0
+        phi_epi_naa = 0.0
+
+    # ----------------------------------------------------------
+    # Energy grid
+    # ----------------------------------------------------------
+    E = np.logspace(
+        np.log10(E_min),
+        np.log10(E_max),
+        n_points
+    )
+
+    # ----------------------------------------------------------
+    # Compute flux contributions
+    # ----------------------------------------------------------
+    Phi_th, Phi_epi, Phi_total = compute_NAA_flux_spectrum(
+        Phi_th_NAA=phi_th_naa,
+        Phi_epi_NAA=phi_epi_naa,
+        E=E,
+        T=T,
+        alpha=alpha
+    )
+
+    # ----------------------------------------------------------
+    # Plot
+    # ----------------------------------------------------------
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    ax.plot(
+        E,
+        Phi_th,
+        alpha=0.5,
+        linewidth=2,
+        label="Thermal"
+    )
+
+    ax.plot(
+        E,
+        Phi_epi,
+        alpha=0.5,
+        linewidth=2,
+        label=rf"Epithermal ($\alpha={alpha}$)"
+    )
+
+    ax.plot(
+        E,
+        Phi_total,
+        alpha=1.0,
+        linewidth=2.5,
+        label="Total"
+    )
+
+    # ----------------------------------------------------------
+    # Formatting
+    # ----------------------------------------------------------
+
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel(r"$\Phi(E)$")
+
+    ax.set_title("Neutron flux trend from NAA")
 
     ax.grid(
         True,

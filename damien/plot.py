@@ -335,7 +335,7 @@ def plot_8(
 
     spectrum = models["fluxE"] if show_fluxE else models["flux"]
 
-    fig, ax = plt.subplots(figsize=(10, 7))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.errorbar(
         E[mask],
@@ -453,7 +453,7 @@ def plot_10(fichiers, datasets, frame=None):
         
     x_data, y_data, y_err = np.array(puissances), np.array(integrales), np.array(unc)
     
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 5))
     ax.errorbar(x_data, y_data, yerr=y_err, fmt='o', color='purple', ecolor=(0.5, 0, 1, 0.4), capsize=4, markersize=4, label='Experimental data')
     
     if len(x_data) > 1:
@@ -494,7 +494,7 @@ def plot_11(fichiers, datasets, fichier_ref="", frame=None):
         for widget in frame.winfo_children():
             widget.destroy()
             
-    fig, ax = plt.subplots(figsize=(11, 5.5))
+    fig, ax = plt.subplots(figsize=(12, 5))
     plt.subplots_adjust(left=0.06, right=0.97, top=0.92, bottom=0.20)
     
     couleurs_cycle = list(mcolors.TABLEAU_COLORS.values())
@@ -721,7 +721,7 @@ def plot_12(fichiers, datasets, frame=None):
     import matplotlib.pyplot as plt
     from pathlib import Path
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 5))
     stats = {}
 
     # ------------------------------------------------------
@@ -771,9 +771,10 @@ def plot_12(fichiers, datasets, frame=None):
         monitor_path = Path("detector-monitor") / monitor_file
         monitor_data = np.loadtxt(monitor_path, skiprows=15)
 
+        
         monitor_channel = monitor_data[:, 0]
-        monitor_flux = apply_grouping_methode1(monitor_data[:, 1])
-
+        monitor_flux = monitor_data[:, 1]
+        mon_integ = np.sum(monitor_flux)
         # --------------------------------------------------
         # Check dimensions
         # --------------------------------------------------
@@ -787,12 +788,14 @@ def plot_12(fichiers, datasets, frame=None):
         # --------------------------------------------------
         # Normalize
         # --------------------------------------------------
-        flux_normalized = np.divide(
-            flux,
-            monitor_flux,
-            out=np.zeros_like(flux, dtype=float),
-            where=monitor_flux != 0
-        )
+        # flux_normalized = np.divide(
+        #     flux,
+        #     monitor_flux,
+        #     out=np.zeros_like(flux, dtype=float),
+        #     where=monitor_flux != 0
+        # )
+
+        flux_normalized = flux / mon_integ
         # flux_normalized = apply_grouping_methode1(flux_normalized)
         # --------------------------------------------------
         # Plot
@@ -851,7 +854,7 @@ def plot_flux_tof(fichiers, datasets, frame=None, **kwargs):
         for widget in frame.winfo_children():
             widget.destroy()
 
-    fig, ax = plt.subplots(figsize=(11, 5.5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     for nom in fichiers:
 
@@ -983,7 +986,7 @@ def plot_flux_energy(fichiers, datasets, frame=None, **kwargs):
         for widget in frame.winfo_children():
             widget.destroy()
 
-    fig, ax = plt.subplots(figsize=(11, 5.5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     for nom in fichiers:
 

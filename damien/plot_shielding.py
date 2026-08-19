@@ -116,7 +116,7 @@ def plot_max_peak_concentration(
     # Plot
     # ==========================================================
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.plot(
         concentrations,
@@ -329,7 +329,7 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
     # Plot
     # ==========================================================
 
-    fig, ax = plt.subplots(figsize=(8,5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.errorbar(
         concentrations,
@@ -604,7 +604,7 @@ def plot_transmission_concentration_tof(fichiers, datasets, frame=None):
     # Avoid divisions by zero
     mask_ref = flux_ref > 0
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     # ==========================================================
     # Loop over samples
@@ -912,7 +912,7 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
     # Plot
     # ==========================================================
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.errorbar(
         thicknesses,
@@ -1464,7 +1464,7 @@ def plot_transmission_thickness_tof(fichiers, datasets, frame=None):
 
     unc_ref = ref["tof_flux"]["deadtime"]["method1"]["unc"]
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     # ==========================================================
     # Loop over samples
@@ -1560,7 +1560,7 @@ def plot_total_cross_section(fichiers, frame=None):
         "O2": BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt",
     }
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     for name, file in files.items():
 
@@ -1667,7 +1667,7 @@ def plot_transmission_vs_energy(fichiers, datasets, frame=None):
         sigma_CH2
     )
 
-    fig, ax = plt.subplots(figsize=(8,5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.plot(E_mix, T_mix, label="Aerogel 4.5 mm")
     ax.plot(E_mix, T_mix_2, label="Aerogel 20 mm")
@@ -1714,7 +1714,7 @@ def plot_simulated_source(fichiers, datasets, frame=None, **kwargs):
 
     Flux_ref_simu = Flux_ref_simu
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.plot(
         E_ref,

@@ -589,6 +589,7 @@ class NeutronApp:
             ("Thermal and Epithermal Flux", "NAA_1"),
             ("Germanium histrogram spectrum", "NAA_2"),
             ("HPGe Efficiency", "NAA_3"),
+            ("Flux modelisation", "NAA_4"),
         ]
         for label, p_id in naa_options:
             self.naa_submenu.add_command(
@@ -1487,6 +1488,13 @@ class NeutronApp:
         },
 
         "NAA_3": {
+            "default_logx": True,
+            "default_logy": False,
+            "display_limits": False,
+            "plot8_options": False,
+        },
+
+        "NAA_4": {
             "default_logx": True,
             "default_logy": False,
             "display_limits": False,
@@ -2850,6 +2858,12 @@ class NeutronApp:
 
                 elif numero_plot == "NAA_3":
                     self.current_fig = pt_naa.plot_Ge_efficiency(
+                        fichiers,
+                        **base_kwargs
+                    )
+
+                elif numero_plot == "NAA_4":
+                    self.current_fig = pt_naa.plot_NAA_flux_modelisation(
                         fichiers,
                         **base_kwargs
                     )
