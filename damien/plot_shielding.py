@@ -927,8 +927,7 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
     )
     ax.axhline(y=0.1, linestyle="--", color='gray', alpha=0.5)
     ax.axhline(y=0.03, linestyle="--", color='gray', alpha=0.5)
-    ax.axhline(y=0.01, linestyle="--", color='gray', alpha=0.5)
-
+    
     # ==========================================================
     # Plot comparison points
     # ==========================================================
@@ -937,7 +936,7 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
 
     # Interpolation de la courbe principale T(x)
     curve_interp = interp1d(
-        thicknesses,
+        thicknesses, 
         transmissions,
         kind="linear",
         bounds_error=False,
