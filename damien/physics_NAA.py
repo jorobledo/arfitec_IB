@@ -9,13 +9,13 @@ PARAMS = {
     "t_half": 2.5785,     # Radioactive half-life of Mn-56 (hours)
     "y": 0.989,           # Gamma emission intensity / yield (846.77 keV)
     "C": 0.8,             # Concentration of element in target
-    "eps": 1.0e-3,           # Detector efficiency for this energy
+    "eps": 1.56e-3,        # Detector efficiency for this energy
     "eta": 1.0,           # Isotopic abundance of Mn-55
     "F_Cd": 1.0,          # Cadmium correction factor
     "G_th": 0.984,        # Thermal self-shielding factor
     "G_epi": 0.744,       # Epithermal self-shielding factor
     "sig_th": 13.3e-24,   # Fictitious thermal cross section (cm^2)
-    "sig_epi": 14.0e-24     # Epithermal cross section / Resonance integral (cm^2)
+    "sig_epi": 14.0e-24   # Epithermal cross section / Resonance integral (cm^2)
 }
 
 def get_lambda(t_half):
@@ -62,3 +62,91 @@ def model_tof_epi_NAA(t, a0, a1, a2, Ed, b, beta, E_array, flux_th, flux_epi):
     return flux_th * F_M + flux_epi * F_E
 
 # print (get_flux(get_R(), get_R()))  # Example usage of get_flux function
+
+
+def compute_NAA_flux_spectrum(
+    Phi_th_NAA,
+    Phi_epi_NAA,
+    E,
+    T=293.0,
+    alpha=0.0
+):
+    """
+    Compute the thermal, epithermal and total neutron
+    flux contributions obtained from NAA.
+
+    Parameters
+    ----------
+    Phi_th_NAA : float
+        Thermal flux obtained from NAA.
+
+    Phi_epi_NAA : float
+        Epithermal flux obtained from NAA.
+
+    E : array-like
+        Energy array in eV.
+
+    T : float, optional
+        Neutron temperature in Kelvin.
+        Default: 293 K.
+
+    alpha : float, optional
+        Exponent parameter for the epithermal spectrum.
+        Default: 0.
+
+    Returns
+    -------
+    Phi_th : numpy.ndarray
+        Thermal contribution.
+
+    Phi_epi : numpy.ndarray
+        Epithermal contribution.
+
+    Phi_total : numpy.ndarray
+        Sum of thermal and epithermal contributions.
+    """
+
+    # ----------------------------------------------------------
+    # Constants
+    # ----------------------------------------------------------
+    k_B = 8.617333262e-5  # eV/K
+
+    # Thermal energy
+    kBT = k_B * T
+
+    # Convert to numpy array
+    E = np.asarray(E, dtype=float)
+
+    # ----------------------------------------------------------
+    # Thermal contribution
+    #
+    # Phi_th(E) =
+    # Phi_th_NAA * E/(kBT)^2 * exp(-E/kBT)
+    # ----------------------------------------------------------
+    Phi_th = (
+        Phi_th_NAA
+        * E
+        / kBT**2
+        * np.exp(-E / kBT)
+    )
+
+    # ----------------------------------------------------------
+    # Epithermal contribution
+    #
+    # Phi_epi(E) =
+    # Phi_epi_NAA / E^(1+alpha)
+    # ----------------------------------------------------------
+    Phi_epi = (
+        Phi_epi_NAA
+        / E**(1.0 + alpha)
+    )
+
+    # ----------------------------------------------------------
+    # Total contribution
+    # ----------------------------------------------------------
+    Phi_th_masked = np.where(E<0.5, Phi_th, 0.0)
+    Phi_epi_masked = np.where(E > 0.0, Phi_epi, 0.0)
+
+    Phi_total = Phi_th + Phi_epi_masked
+
+    return Phi_th_masked, Phi_epi, Phi_total

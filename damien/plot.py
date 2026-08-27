@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import stats
 from scipy.optimize import curve_fit
 import matplotlib.colors as mcolors
 from matplotlib.widgets import Slider, Button,CheckButtons
@@ -11,7 +12,7 @@ import tkinter as tk
 from physics import Na, k_b, R_gaz, R_tube, masse_n, angle, atom_dens, eV
 from physics import model_epi_pure, fit_maxwellian_grid_search, maxwell_model_tof, model_tof_epi, calculate_r_squared
 from physics import maxwell_model_E, maxwell_model_E_corr, maxwell_epi_analytique_E, maxwell_epi_analytique_E_corr
-from physics import cross_section, transmission_coeff, apply_grouping_methode1, apply_grouping_methode2
+from physics import cross_section, transmission_coeff, apply_grouping_methode1, apply_grouping_methode2, remove_background
 from physics import compute_cross_section_uncertainty, read_reference_file, compute_amp_init_from_ref, compute_grouping_cross_section_m2
 from physics import compute_fit_results_from_dataset, compute_plot8_models
 
@@ -281,25 +282,25 @@ def plot_7(fichiers, datasets, choice_sub=7.1, frame=None):
         
         if choice_sub == 7.1:            
             fig, ax = plt.subplots(figsize=(12, 5))
-            ax.errorbar(data['ToF'][mask_1] * 1e6, data['flux_tof'][mask_1], yerr=data['unc_tof'][mask_1], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected')
+            ax.errorbar(data['ToF'][mask_1] * 1e6, data['flux_tof'][mask_1], yerr=data['unc_tof'][mask_1], fmt='.', markersize=4, color='blue', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected')
             ax.plot(data['ToF'][mask_1] * 1e6, flux_modele_1[mask_1], '-', color='black', linewidth=2, label=f'Fit Maxwellian 1 (a1 = {a1_tof_pure_1:.1f}, R² = {r_squared_1:.2f})')
-            ax.errorbar(data['ToF_grouped'][mask_2] * 1e6, data['flux_tof_grouped'][mask_2], yerr=data['unc_tof_grouped'][mask_2], fmt='.', markersize=4, color='blue', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected 2')
-            ax.plot(data['ToF_grouped'][mask_2] * 1e6, flux_modele_2[mask_2], '-', color='red', linewidth=2, label=f'Fit Maxwellian 2 (a1 = {a1_tof_pure_2:.1f}, R² = {r_squared_2:.2f})')
+            # ax.errorbar(data['ToF_grouped'][mask_2] * 1e6, data['flux_tof_grouped'][mask_2], yerr=data['unc_tof_grouped'][mask_2], fmt='.', markersize=4, color='blue', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected 2')
+            # ax.plot(data['ToF_grouped'][mask_2] * 1e6, flux_modele_2[mask_2], '-', color='red', linewidth=2, label=f'Fit Maxwellian 2 (a1 = {a1_tof_pure_2:.1f}, R² = {r_squared_2:.2f})')
             
             ax.set_xlabel('time (us)')
             ax.set_ylabel('counts')
             ax.set_title('Time of flight spectrum with optimal Maxwellian fit') 
-            ax.legend(labelcolor=['black', 'red', 'purple', 'blue'], markerscale=2.0, fontsize=8)
+            ax.legend(markerscale=2.0, fontsize=8)
             ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)
             _integrer_canvas(fig, frame)
             
         elif choice_sub == 7.2:
-            fig, ax = plt.subplots(figsize=(12, 6))
+            fig, ax = plt.subplots(figsize=(12, 5))
             ax.errorbar(data['ToF'][mask_1] * 1e6, data['flux_tof'][mask_1], yerr=data['unc_tof'][mask_1], fmt='.', markersize=4, color='purple', ecolor=(0.5, 0, 1, 0.2), capsize=2, label='Experimental corrected')
             ax.plot(data['ToF'][mask_1] * 1e6, flux_modele_1[mask_1], '--', color='blue', linewidth=1.5, label=f'Fit Maxwellian pure (T = {T_1:.1f} K, R² = {r_squared_1:.2f})')
             ax.plot(data['ToF'][mask_1] * 1e6, flux_modele_1_epi[mask_1], '--', color='red', linewidth=2, label=f'Fit Maxwellian + Epi (T = {T_1_epi:.1f} K, R² = {r_squared_1_epi:.2f})')
             ax.plot(data['ToF'][mask_1] * 1e6, flux_epi_pure[mask_1], "--", color='green', label='Epithermal contribution')
-            ax.plot(data['ToF'][mask_1] * 1e6, flux_luis[mask_1], "--", color='orange', label='Luis Fit')
+            ax.plot(data['ToF'][mask_1] * 1e6, flux_luis[mask_1], "--", color='orange', label='Manual Fit')
             
             ax.set_xlabel('time (us)')
             ax.set_ylabel('counts')
@@ -334,7 +335,7 @@ def plot_8(
 
     spectrum = models["fluxE"] if show_fluxE else models["flux"]
 
-    fig, ax = plt.subplots(figsize=(10, 7))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.errorbar(
         E[mask],
@@ -347,6 +348,7 @@ def plot_8(
         capsize=2,
         label="Experimental",
     )
+    
 
     if show_maxwell:
         ax.plot(
@@ -391,11 +393,12 @@ def plot_8(
 
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Flux × E" if show_fluxE else "Flux")
-
+   
     if show_logx:
         ax.set_xscale("log")
     if show_logy:
         ax.set_yscale("log")
+        
 
     ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)
     ax.legend(fontsize=8)
@@ -403,7 +406,7 @@ def plot_8(
     plt.tight_layout()
     _integrer_canvas(fig, frame)
 
-    return fig
+    return fig, models
 
 def plot_9(fichiers, datasets, frame=None):
     print('Calculating please wait...')
@@ -450,7 +453,7 @@ def plot_10(fichiers, datasets, frame=None):
         
     x_data, y_data, y_err = np.array(puissances), np.array(integrales), np.array(unc)
     
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 5))
     ax.errorbar(x_data, y_data, yerr=y_err, fmt='o', color='purple', ecolor=(0.5, 0, 1, 0.4), capsize=4, markersize=4, label='Experimental data')
     
     if len(x_data) > 1:
@@ -491,7 +494,7 @@ def plot_11(fichiers, datasets, fichier_ref="", frame=None):
         for widget in frame.winfo_children():
             widget.destroy()
             
-    fig, ax = plt.subplots(figsize=(11, 5.5))
+    fig, ax = plt.subplots(figsize=(12, 5))
     plt.subplots_adjust(left=0.06, right=0.97, top=0.92, bottom=0.20)
     
     couleurs_cycle = list(mcolors.TABLEAU_COLORS.values())
@@ -690,29 +693,146 @@ def plot_11(fichiers, datasets, fichier_ref="", frame=None):
     _integrer_canvas(fig, frame)
     return fig
 
-def plot_12(fichiers, datasets, fichier_ref="", frame=None):
-    """Takes interactive variables directly as arguments."""
-    thickness = PARAMS['thickness']
-    atom_density = PARAMS['atom_density']
-    E_min = PARAMS['E_min']
-    E_max = PARAMS['E_max']
-    
-    fig, ax = plt.subplots(figsize=(12, 5))
-    
-    chemin_complet_ref = os.path.join("data", fichier_ref)
-    E_ref, sigma_ref, unc_ref = np.loadtxt(chemin_complet_ref, unpack=True)
-    mask_ref = (E_ref * 1e-3 >= E_min) & (E_ref * 1e-3 <= E_max)
-    
-    p_ref = ax.errorbar(E_ref[mask_ref] * 1e-3, sigma_ref[mask_ref], yerr=unc_ref[mask_ref], 
-                         fmt='-', color='black', linewidth=1.5, label=f"Ref: {fichier_ref}")
-    p_ref[2][0].set_color((0, 0, 0, 0.2))
-        
-    ax.set_xscale('log'); ax.set_xlabel('Energy (eV)'); ax.set_ylabel('Cross section (barns)')
-    ax.legend(); ax.grid(True, which="both", linestyle="--")
-    
-    _integrer_canvas(fig, frame)
-    return fig
+def plot_12(fichiers, datasets, frame=None):
+    """
+    Plot neutron flux normalized by a monitor.
 
+    For each selected data file:
+        normalized_flux = corrected_flux / monitor_flux
+
+    Monitor files must be named:
+        mon-<data_filename>
+
+    Example:
+        data01.dat
+        mon-data01.dat
+
+    Parameters
+    ----------
+    fichiers : list
+        Selected files.
+
+    Returns
+    -------
+    fig, stats
+    """
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from pathlib import Path
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+    stats = {}
+
+    # ------------------------------------------------------
+    # Separate data files and monitor files
+    # ------------------------------------------------------
+    fichiers = [Path(f) for f in fichiers]
+
+    monitor_files = {
+        f.name[5:]: f
+        for f in fichiers
+        if f.name.startswith("mon2_")
+    }
+
+    data_files = [
+        f for f in fichiers
+        if not f.name.startswith("mon2_")
+    ]
+
+    # ------------------------------------------------------
+    # Process each data file
+    # ------------------------------------------------------
+    for fichier in data_files:
+
+        # --------------------------------------------------
+        # Find associated monitor
+        # --------------------------------------------------
+        if fichier.name not in monitor_files:
+            print(
+                f"No monitor found for '{fichier.name}'. "
+                f"Expected: 'mon2_{fichier.name}'"
+            )
+            continue
+
+        monitor_file = monitor_files[fichier.name]
+
+        data = datasets[str(fichier)]
+
+        # --------------------------------------------------
+        # Get corrected flux
+        # --------------------------------------------------
+        tof = data["tof_flux"]["all"]["method1"]["ToF"]
+        flux = data["tof_flux"]["all"]["method1"]["flux"]
+
+        # --------------------------------------------------
+        # Load monitor
+        # --------------------------------------------------
+        monitor_path = Path("detector-monitor") / monitor_file
+        monitor_data = np.loadtxt(monitor_path, skiprows=15)
+
+        
+        monitor_channel = monitor_data[:, 0]
+        monitor_flux = monitor_data[:, 1]
+        mon_integ = np.sum(monitor_flux)
+        # --------------------------------------------------
+        # Check dimensions
+        # --------------------------------------------------
+        if len(tof) != len(monitor_flux):
+            raise ValueError(
+                f"Size mismatch between '{fichier.name}' "
+                f"and '{monitor_file.name}': "
+                f"{len(tof)} vs {len(monitor_flux)} points."
+            )
+
+        # --------------------------------------------------
+        # Normalize
+        # --------------------------------------------------
+        # flux_normalized = np.divide(
+        #     flux,
+        #     monitor_flux,
+        #     out=np.zeros_like(flux, dtype=float),
+        #     where=monitor_flux != 0
+        # )
+
+        flux_normalized = flux / mon_integ
+        # flux_normalized = apply_grouping_methode1(flux_normalized)
+        # --------------------------------------------------
+        # Plot
+        # --------------------------------------------------
+        ax.plot(
+            tof * 1e6,
+            flux_normalized,
+            label=fichier.stem
+        )
+
+        # --------------------------------------------------
+        # Statistics
+        # --------------------------------------------------
+        stats[fichier.name] = {
+            "monitor": monitor_file.name,
+            "min": float(np.min(flux_normalized)),
+            "max": float(np.max(flux_normalized)),
+            "mean": float(np.mean(flux_normalized)),
+        }
+
+    # ------------------------------------------------------
+    # Plot formatting
+    # ------------------------------------------------------
+    ax.set_xlabel("Time-of-Flight (µs)")
+    ax.set_ylabel("Normalized Flux")
+    ax.set_title("Neutron Flux Normalized by Monitor")
+
+    ax.grid(True, which="both", alpha=0.3)
+
+    if len(stats) > 1:
+        ax.legend()
+
+    _integrer_canvas(fig, frame)
+
+    fig.tight_layout()
+
+    return fig, stats
 
 
 def plot_flux_tof(fichiers, datasets, frame=None, **kwargs):
@@ -734,7 +854,7 @@ def plot_flux_tof(fichiers, datasets, frame=None, **kwargs):
         for widget in frame.winfo_children():
             widget.destroy()
 
-    fig, ax = plt.subplots(figsize=(11, 5.5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     for nom in fichiers:
 
@@ -793,38 +913,107 @@ def plot_flux_tof(fichiers, datasets, frame=None, **kwargs):
     
     _integrer_canvas(fig, frame)
 
-    return fig
+    # ==========================================================
+    # Statistics
+    # ==========================================================
+
+    stats = {}
+
+    for nom in fichiers:
+
+        data = datasets[nom]
+
+        flux_displayed = data["tof_flux"][correction_mode][grouping_method]["flux"]
+        unc_displayed  = data["tof_flux"][correction_mode][grouping_method]["unc"]
+        tof_displayed  = data["tof_flux"][correction_mode][grouping_method]["ToF"]
+
+        # Intégrale du spectre affiché
+        integral_displayed = np.trapezoid(
+            flux_displayed[mask],
+            tof_displayed[mask]
+        )
+
+        # Maximum du spectre affiché
+        idx_max = np.argmax(flux_displayed[mask])
+
+        max_flux = flux_displayed[idx_max]
+        max_tof  = tof_displayed[idx_max] * 1e6   # µs
+
+        # Ratio DeadTime sans BG / avec BG
+        flux_dt = data["tof_flux"]["deadtime"]["method1"]["flux"][mask]
+        tof_dt  = data["tof_flux"]["deadtime"]["method1"]["ToF"][mask]
+
+        flux_dt_without_background = remove_background(flux_dt)
+        tof_dt_without_background  = data["tof_flux"]["all"]["method1"]["ToF"][mask]
+
+        integral_dt = np.trapezoid(flux_dt, tof_dt)
+        integral_dt_without_background = np.trapezoid(flux_dt_without_background, tof_dt_without_background)
+
+        ratio_background = (
+            integral_dt_without_background / integral_dt * 100
+            if integral_dt != 0
+            else np.nan
+        )
+
+        stats[os.path.basename(nom)] = {
+
+            "integral_displayed": integral_displayed,
+
+            "ratio_background": ratio_background,
+
+            "max_flux": max_flux,
+
+            "max_tof": max_tof,
+        }
+
+    return fig, stats
 
 
-def plot_flux_energy(fichiers, datasets, frame=None):
+def plot_flux_energy(fichiers, datasets, frame=None, **kwargs):
     """
     Plot corrected neutron flux in the Energy domain with uncertainties.
-    Uses flux_E2 = Flux(E) × E.
-    Multiple datasets can be superimposed.
+
+    show_fluxE = True  -> Flux(E) × E
+    show_fluxE = False -> Flux(E)*
     """
 
-    E_min        = PARAMS['E_min']
-    E_max        = PARAMS['E_max']
-      
+    E_min = PARAMS['E_min']
+    E_max = PARAMS['E_max']
+
+    show_fluxE = kwargs.get("show_fluxE", False)
+
     if frame is not None:
         for widget in frame.winfo_children():
             widget.destroy()
 
-    fig, ax = plt.subplots(figsize=(11, 5.5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     for nom in fichiers:
+
         data = datasets[nom]
-        mask_E = (data["E"] >= E_min) & (data["E"] <= E_max)
+
+        mask_E = (
+            (data["E"] >= E_min)
+            &
+            (data["E"] <= E_max)
+        )
 
         x = data["E"][mask_E]
-        y = data["flux_E2"][mask_E]
-        err = data["unc_E2"][mask_E]
 
-        # Using errorbar to display the vertical uncertainty vector on the energy scale
+        if show_fluxE:
+
+            y = data["flux_E2"][mask_E]
+            err = data["unc_E2"][mask_E]
+
+        else:
+
+            y = data["flux_E"][mask_E]
+            err = data["unc_E"][mask_E]
+
         lines, caps, bars = ax.errorbar(
             x,
             y,
-            yerr=err,  # [Propagated] uncertainty vector tracking
+            yerr=err,
             fmt='o-',
             linewidth=1.5,
             elinewidth=0.8,
@@ -832,16 +1021,34 @@ def plot_flux_energy(fichiers, datasets, frame=None):
             markersize=3,
             label=nom
         )
+
         for bar in bars:
             bar.set_alpha(0.4)
 
     ax.set_xscale("log")
+
     ax.set_xlabel("Energy (eV)")
-    ax.set_ylabel("Flux(E) × E")
-    ax.set_title("Corrected Energy Flux")
-    ax.grid(True, which="both", linestyle="--", alpha=0.5)
+
+    if show_fluxE:
+        ax.set_ylabel("Flux(E) × E")
+        ax.set_title("Corrected Energy Flux × E")
+    else:
+        ax.set_ylabel("Flux(E)")
+        ax.set_title("Corrected Energy Flux")
+
+    ax.grid(
+        True,
+        which="both",
+        linestyle="--",
+        alpha=0.5
+    )
+
     ax.legend()
 
     plt.tight_layout()
+
     _integrer_canvas(fig, frame)
+
     return fig
+
+

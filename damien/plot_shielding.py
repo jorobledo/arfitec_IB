@@ -2,12 +2,24 @@ import tkinter as tk
 from tkinter import ttk
 import os
 import re
+from matplotlib.widgets import RangeSlider
 import numpy as np
 import matplotlib.pyplot as plt
-from physics_NAA import PARAMS, get_R, get_flux, get_lambda, model_tof_epi_NAA
-from physics import integrate_thermal_epithermal_flux
+from physics_NAA import get_R, get_flux, get_lambda, model_tof_epi_NAA
+from physics import PARAMS, integrate_thermal_epithermal_flux, masse_n, eV
 from plot import _integrer_canvas
+from config import PARAMS
+from physics_shielding import (
+    build_sigma_mix_from_files,
+    average_transmission,
+    load_cross_section,
+    average_transmission_ref,
+    transmission_vs_energy,
+    transmission_vs_energy_ref,
+)
 from scipy.interpolate import interp1d
+from pathlib import Path
+from physics_shielding import composition_data
 
 
 def plot_max_peak_concentration(
@@ -21,8 +33,8 @@ def plot_max_peak_concentration(
 
     WINDOW = 30
 
-    THERMAL_T_MIN = 100e-6
-    THERMAL_T_MAX = 3700e-6
+    THERMAL_T_MIN = 300e-6
+    THERMAL_T_MAX = 2000e-6
 
     if frame is not None:
         for widget in frame.winfo_children():
@@ -104,7 +116,7 @@ def plot_max_peak_concentration(
     # Plot
     # ==========================================================
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.plot(
         concentrations,
@@ -130,7 +142,7 @@ def plot_max_peak_concentration(
 
     return fig
 
-def plot_transmission_concentration(fichiers, datasets, comparison_points=None, frame=None):
+def plot_transmission_concentration(fichiers, datasets, comparison_points=None, frame=None, **kwargs):
     """
     Plot the thermal neutron transmission as a function of B4C concentration.
 
@@ -167,8 +179,8 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
     # Thermal integration limits
     # ----------------------------------------------------------
 
-    THERMAL_T_MIN = 100e-6
-    THERMAL_T_MAX = 3700e-6
+    THERMAL_T_MIN = 300e-6
+    THERMAL_T_MAX = 2000e-6
 
     if frame is not None:
         for widget in frame.winfo_children():
@@ -317,7 +329,7 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
     # Plot
     # ==========================================================
 
-    fig, ax = plt.subplots(figsize=(8,5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.errorbar(
         concentrations,
@@ -421,6 +433,103 @@ def plot_transmission_concentration(fichiers, datasets, comparison_points=None, 
                     f"{element}: {e}"
                 )
 
+    # ==========================================================
+    # Theoretical transmission model
+    # ==========================================================
+    show_theo = kwargs.get("show_theo_transmission", True)
+    if show_theo :
+
+        # ------------------------------------------------------
+        # Cross section files
+        # ------------------------------------------------------
+        BASE_DIR = Path(__file__).parent
+
+        B_file  = BASE_DIR / "Shielding" / "set-tot" / "B" / "sig-tot-B.dat"
+        C_file  = BASE_DIR / "Shielding" / "set-tot" / "C" / "sig-tot-C.dat"
+        H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
+        O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.dat"
+        Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
+        Cd_file = BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat"
+
+        # ------------------------------------------------------
+        # Experimental incident spectrum
+        # ------------------------------------------------------
+
+        tof_ref = ref["ToF"]
+        flux_ref_tof = ref["flux_tof"]
+
+        # ------------------------------------------------------
+        # Compute theoretical transmission
+        # ------------------------------------------------------
+
+        T_theory = []
+
+        for concentration in concentrations[1:]:
+
+            data = composition_data[concentration]
+
+            fract_B4C, fract_PDMS, fract_SiO2, fract_MTMS = data["fract_mol"]
+
+            atomic_density = data["atomic_density"]
+
+            # Recompute sigma_mix for this concentration
+            E_mix, sigma_mix, sigma_Cd, sigma_CH2 = build_sigma_mix_from_files(
+                B_file,
+                C_file,
+                H_file,
+                O_file,
+                Si_file,
+                Cd_file,
+                fract_B4C,
+                fract_PDMS,
+                fract_SiO2,
+                fract_MTMS
+            )
+
+            # --------------------------------------------------
+            # Convert reference ToF -> Energy
+            # --------------------------------------------------
+
+            E_ref = ref["E"]
+
+            # Interpolate sigma on experimental energy grid
+            sigma_interp = interp1d(
+                E_mix,
+                sigma_mix,
+                bounds_error=False,
+                fill_value="0"
+            )
+
+            sigma_ref = sigma_interp(E_ref)
+
+            # Thermal window
+            E_max_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MIN)**2 / eV
+            E_min_thermal = 0.5 * masse_n * (1.915 / THERMAL_T_MAX)**2 / eV
+            mask = (E_ref >= E_min_thermal) & (E_ref <= E_max_thermal)
+
+            T = average_transmission(
+                0.45,
+                E_ref[mask],
+                sigma_ref[mask],
+                flux_ref_tof[mask],
+                atomic_density=atomic_density
+            )
+
+            T_theory.append(T)
+
+        T_theory = np.array(T_theory)
+
+        ax.plot(
+            concentrations[1:],
+            T_theory,
+            "o--",
+            color="#E69F00",
+            markerfacecolor="white",
+            markeredgecolor="#E69F00",
+            linewidth=1.5,
+            label="Beer-Lambert model"
+        )
+
     ax.set_xlabel("B$_4$C concentration (%)")
     ax.set_ylabel("Thermal neutron transmission")
     ax.set_title("Thermal neutron transmission")
@@ -495,7 +604,7 @@ def plot_transmission_concentration_tof(fichiers, datasets, frame=None):
     # Avoid divisions by zero
     mask_ref = flux_ref > 0
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     # ==========================================================
     # Loop over samples
@@ -575,7 +684,7 @@ def plot_transmission_concentration_tof(fichiers, datasets, frame=None):
 
 
 
-def plot_transmission_thickness(fichiers, datasets, comparison_points=None, frame=None):
+def plot_transmission_thickness(fichiers, datasets, comparison_points=None, frame=None, **kwargs):
     """
     Plot thermal neutron transmission as a function of B4C thickness.
 
@@ -590,8 +699,8 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
     import numpy as np
     import matplotlib.pyplot as plt
 
-    THERMAL_T_MIN = 100e-6
-    THERMAL_T_MAX = 3700e-6
+    THERMAL_T_MIN = PARAMS["t_min"]
+    THERMAL_T_MAX = PARAMS["t_max"]
 
     if frame is not None:
         for widget in frame.winfo_children():
@@ -803,7 +912,7 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
     # Plot
     # ==========================================================
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.errorbar(
         thicknesses,
@@ -816,7 +925,9 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
         markersize=6,
         label="B4C transmission"
     )
-
+    ax.axhline(y=0.1, linestyle="--", color='gray', alpha=0.5)
+    ax.axhline(y=0.03, linestyle="--", color='gray', alpha=0.5)
+    
     # ==========================================================
     # Plot comparison points
     # ==========================================================
@@ -825,7 +936,7 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
 
     # Interpolation de la courbe principale T(x)
     curve_interp = interp1d(
-        thicknesses,
+        thicknesses, 
         transmissions,
         kind="linear",
         bounds_error=False,
@@ -907,17 +1018,370 @@ def plot_transmission_thickness(fichiers, datasets, comparison_points=None, fram
                     f"{element}: {e}"
                 )
 
+    # ==========================================================
+    # Theoretical transmission model
+    # ==========================================================
+    show_theo = kwargs.get("show_theo_transmission", True)
+
+    if show_theo:
+
+        # ------------------------------------------------------
+        # Cross section files
+        # ------------------------------------------------------
+        BASE_DIR = Path(__file__).parent
+
+        B_file = BASE_DIR / "Shielding" / "set-tot" / "B" / "sig-tot-B.dat"
+        C_file = BASE_DIR / "Shielding" / "set-tot" / "C" / "sig-tot-C.dat"
+        H_file = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
+        O_file = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt"
+        Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
+        Cd_file = BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat"
+
+        ref_file = (
+            BASE_DIR
+            / "Shielding"
+            / "set-tot"
+            / "spectrum_avant_chopper.dat"
+        )
+
+        E_mix, sigma_mix, sigma_Cd, sigma_CH2 = build_sigma_mix_from_files(
+            B_file,
+            C_file,
+            H_file,
+            O_file,
+            Si_file,
+            Cd_file,
+            0.650218276,
+            0.001557414014,
+            0.2690997816,
+            0.07912452836
+        )
+
+        # ------------------------------------------------------
+        # Experimental / simulated incident spectrum
+        # ------------------------------------------------------
+        E_ref, Flux_ref_simu = load_cross_section(ref_file)
+
+        # ------------------------------------------------------
+        # Interpolate cross sections on reference energy grid
+        # ------------------------------------------------------
+        sigma_interp = interp1d(
+            E_mix,
+            sigma_mix,
+            bounds_error=False,
+            fill_value=0.0
+        )
+
+        sigma_interp_Cd = interp1d(
+            E_mix,
+            sigma_Cd,
+            bounds_error=False,
+            fill_value=0.0
+        )
+
+        sigma_interp_CH2 = interp1d(
+            E_mix,
+            sigma_CH2,
+            bounds_error=False,
+            fill_value=0.0
+        )
+
+        sigma_mix_interp = sigma_interp(E_ref)
+        sigma_Cd_interp = sigma_interp_Cd(E_ref)
+        sigma_CH2_interp = sigma_interp_CH2(E_ref)
+
+        # ------------------------------------------------------
+        # Keep only valid positive energies
+        # ------------------------------------------------------
+        valid_mask = (
+            np.isfinite(E_ref)
+            & np.isfinite(Flux_ref_simu)
+            & (E_ref > 0)
+        )
+
+        E_ref_valid = E_ref[valid_mask]
+        Flux_ref_valid = Flux_ref_simu[valid_mask]
+        sigma_mix_valid = sigma_mix_interp[valid_mask]
+        sigma_Cd_valid = sigma_Cd_interp[valid_mask]
+        sigma_CH2_valid = sigma_CH2_interp[valid_mask]
+
+        # Sort according to energy
+        sort_idx = np.argsort(E_ref_valid)
+
+        E_ref_valid = E_ref_valid[sort_idx]
+        Flux_ref_valid = Flux_ref_valid[sort_idx]
+        sigma_mix_valid = sigma_mix_valid[sort_idx]
+        sigma_Cd_valid = sigma_Cd_valid[sort_idx]
+        sigma_CH2_valid = sigma_CH2_valid[sort_idx]
+
+        # ------------------------------------------------------
+        # Initial energy range
+        # ------------------------------------------------------
+        E_min_data = E_ref_valid.min()
+        E_max_data = E_ref_valid.max()
+
+        # Initial range = thermal window if it is inside the data range
+        E_max_thermal = (
+            0.5 * masse_n * (1.915 / THERMAL_T_MIN) ** 2 / eV
+        )
+
+        E_min_thermal = (
+            0.5 * masse_n * (1.915 / THERMAL_T_MAX) ** 2 / eV
+        )
+
+        E_min_selected = max(E_min_data, E_min_thermal)
+        E_max_selected = min(E_max_data, E_max_thermal)
+
+        # If thermal range is not contained in the data,
+        # use the complete available range
+        if E_min_selected >= E_max_selected:
+            E_min_selected = E_min_data
+            E_max_selected = E_max_data
+
+        # ------------------------------------------------------
+        # Initial theoretical calculation
+        # ------------------------------------------------------
+        def compute_theoretical_transmission(
+            E_min,
+            E_max
+        ):
+            """
+            Compute the theoretical transmission using only
+            the selected energy interval.
+            """
+
+            energy_mask = (
+                (E_ref_valid >= E_min)
+                & (E_ref_valid <= E_max)
+            )
+
+            E_selected = E_ref_valid[energy_mask]
+            Flux_selected = Flux_ref_valid[energy_mask]
+            sigma_selected = sigma_mix_valid[energy_mask]
+
+            sigma_Cd_selected = sigma_Cd_valid[energy_mask]
+            sigma_CH2_selected = sigma_CH2_valid[energy_mask]
+
+            # Avoid calculation if the selected interval
+            # contains too few points
+            if len(E_selected) < 2:
+                return None
+
+            # --------------------------------------------------
+            # B4C transmission
+            # --------------------------------------------------
+            T_theory = []
+
+            for thickness_mm in thicknesses:
+
+                thickness_cm = thickness_mm / 10.0
+
+                T = average_transmission(
+                    thickness_cm,
+                    E_selected,
+                    sigma_selected,
+                    Flux_selected,
+                    atomic_density=3.35E+21
+                )
+
+                T_theory.append(T)
+
+            T_theory = np.asarray(T_theory)
+
+            # --------------------------------------------------
+            # Polyethylene + Cd reference
+            # --------------------------------------------------
+            T_polyethylene = average_transmission_ref(
+                E_selected,
+                Flux_selected,
+                0.1,
+                sigma_Cd_selected,
+                0.5,
+                sigma_CH2_selected,
+            )
+
+            # --------------------------------------------------
+            # Cd reference
+            # --------------------------------------------------
+            T_Cd = average_transmission(
+                0.1,
+                E_selected,
+                sigma_Cd_selected,
+                Flux_selected,
+                atomic_density=4.6e22
+            )
+
+            return T_theory, T_polyethylene, T_Cd
+
+        # ------------------------------------------------------
+        # Initial calculation
+        # ------------------------------------------------------
+        result = compute_theoretical_transmission(
+            E_min_selected,
+            E_max_selected
+        )
+
+        T_theory, T_polyethylene, T_Cd = result
+
+        # ------------------------------------------------------
+        # Plot theoretical curves
+        # ------------------------------------------------------
+        theory_line, = ax.plot(
+            thicknesses,
+            T_theory,
+            "o--",
+            color="#E69F00",
+            markerfacecolor="white",
+            markeredgecolor="#E69F00",
+            linewidth=1.5,
+            label="Beer-Lambert model"
+        )
+
+        polyethylene_point, = ax.plot(
+            6.0,
+            T_polyethylene,
+            "o",
+            color="#FF00E6",
+            markerfacecolor="white",
+            markeredgecolor="#FF00E6",
+            label="Polyethylene + Cd reference"
+        )
+
+        cd_point, = ax.plot(
+            1.0,
+            T_Cd,
+            "o",
+            color="#00FF40",
+            markerfacecolor="white",
+            markeredgecolor="#00FF40",
+            label="Cd reference"
+        )
+
+        # ======================================================
+        # Energy Range Slider
+        # ======================================================
+
+        # Leave space at bottom for slider
+        fig.subplots_adjust(bottom=0.25)
+
+        slider_ax = fig.add_axes(
+            [0.15, 0.09, 0.70, 0.035]
+        )
+
+        # Slider works in log10(E)
+        log_E_min = np.log10(E_min_data)
+        log_E_max = np.log10(E_max_data)
+
+        slider = RangeSlider(
+            slider_ax,
+            "Energy (eV)",
+            log_E_min,
+            log_E_max,
+            valinit=(
+                np.log10(E_min_selected),
+                np.log10(E_max_selected)
+            ),
+            valfmt="%1.2f"
+        )
+
+        # ------------------------------------------------------
+        # Energy label
+        # ------------------------------------------------------
+        energy_text = fig.text(
+            0.5,
+            0.04,
+            "",
+            ha="center",
+            fontsize=10
+        )
+
+        def format_energy(E):
+            """
+            Convert energy in eV to a readable unit.
+            """
+
+            if E < 1e-3:
+                return f"{E * 1e6:.3g} µeV"
+
+            elif E < 1:
+                return f"{E * 1e3:.3g} meV"
+
+            else:
+                return f"{E:.3g} eV"
+
+        def update_energy_range(val):
+
+            # ----------------------------------------------
+            # Convert slider values back to energy
+            # ----------------------------------------------
+            E_min_selected = 10 ** val[0]
+            E_max_selected = 10 ** val[1]
+
+            # ----------------------------------------------
+            # Update displayed energy range
+            # ----------------------------------------------
+            energy_text.set_text(
+                f"Selected energy range: "
+                f"{format_energy(E_min_selected)} "
+                f"→ "
+                f"{format_energy(E_max_selected)}"
+            )
+
+            # ----------------------------------------------
+            # Recalculate theoretical transmission
+            # ----------------------------------------------
+            result = compute_theoretical_transmission(
+                E_min_selected,
+                E_max_selected
+            )
+
+            if result is None:
+                return
+
+            T_theory_new, T_polyethylene_new, T_Cd_new = result
+
+            # ----------------------------------------------
+            # Update plotted data
+            # ----------------------------------------------
+            theory_line.set_ydata(T_theory_new)
+
+            polyethylene_point.set_ydata(
+                [T_polyethylene_new]
+            )
+
+            cd_point.set_ydata(
+                [T_Cd_new]
+            )
+
+            # ----------------------------------------------
+            # Redraw
+            # ----------------------------------------------
+            fig.canvas.draw_idle()
+
+        slider.on_changed(update_energy_range)
+
+        # Store slider on figure so it is not garbage collected
+        fig._energy_range_slider = slider
+        fig._energy_text = energy_text
+
+        # Initialize text
+        update_energy_range(slider.val)
+
+
+    # ==========================================================
+    # Plot formatting
+    # ==========================================================
+
     ax.set_xlabel("B$_4$C thickness (mm)")
     ax.set_ylabel("Thermal neutron transmission")
     ax.set_title("Thermal neutron transmission vs thickness")
 
     ax.grid(True, linestyle="--", alpha=0.5)
+
     handles, labels = ax.get_legend_handles_labels()
 
     if labels:
         ax.legend()
-
-    plt.tight_layout()
 
     _integrer_canvas(fig, frame)
 
@@ -1002,7 +1466,7 @@ def plot_transmission_thickness_tof(fichiers, datasets, frame=None):
 
     unc_ref = ref["tof_flux"]["deadtime"]["method1"]["unc"]
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     # ==========================================================
     # Loop over samples
@@ -1081,3 +1545,195 @@ def plot_transmission_thickness_tof(fichiers, datasets, frame=None):
     _integrer_canvas(fig, frame)
 
     return fig
+
+
+def plot_total_cross_section(fichiers, frame=None):
+
+    BASE_DIR = Path(__file__).parent
+
+    files = {
+        "H":  BASE_DIR / "Shielding" / "set-tot" / "H"  / "sig-tot-H.dat",
+        "C":  BASE_DIR / "Shielding" / "set-tot" / "C"  / "sig-tot-C.dat",
+        "O":  BASE_DIR / "Shielding" / "set-tot" / "O"  / "sig-tot-O.dat",
+        "Si": BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat",
+        "Cd": BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat",
+        "B":  BASE_DIR / "Shielding" / "set-tot" / "B"  / "sig-tot-B.dat",
+        # "H2": BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.txt",
+        # "O2": BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt",
+    }
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    for name, file in files.items():
+
+        E, sigma = load_cross_section(file)
+
+        ax.plot(
+            E,
+            sigma,
+            linewidth=1.5,
+            label=name
+        )
+
+    # Polyéthylène CH2
+    E_H, sigma_H = load_cross_section(files["H"])
+    E_C, sigma_C = load_cross_section(files["C"])
+
+    sigma_C_interp = interp1d(
+        E_C,
+        sigma_C,
+        bounds_error=False,
+        fill_value="0.0"
+    )(E_H)
+
+    sigma_CH2 = sigma_C_interp + 2 * sigma_H
+
+    ax.plot(
+        E_H,
+        sigma_CH2,
+        "--",
+        linewidth=2,
+        label="CH₂"
+    )
+
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Total cross section (barns)")
+    ax.set_xlim(1e-3, 1e6)
+
+    ax.set_title("Total neutron cross sections")
+
+    ax.grid(True, which="both", alpha=0.3)
+
+    ax.legend()
+    _integrer_canvas(fig, frame)
+
+    plt.tight_layout()
+
+    if frame is not None:
+        return fig
+
+def plot_transmission_vs_energy(fichiers, datasets, frame=None):
+
+    thickness_aerogel = 0.45  # cm
+    thickness_Cd = 0.1        # cm (1 mm)
+    thickness_CH2 = 0.5       # cm (5 mm)
+
+    BASE_DIR = Path(__file__).parent
+
+    B_file  = BASE_DIR / "Shielding" / "set-tot" / "B" / "sig-tot-B.dat"
+    C_file  = BASE_DIR / "Shielding" / "set-tot" / "C" / "sig-tot-C.dat"
+    H_file  = BASE_DIR / "Shielding" / "set-tot" / "H" / "sig-tot-H.dat"
+    O_file  = BASE_DIR / "Shielding" / "set-tot" / "O" / "sig-tot-O.txt"
+    Si_file = BASE_DIR / "Shielding" / "set-tot" / "Si" / "sig-tot-Si.dat"
+    Cd_file = BASE_DIR / "Shielding" / "set-tot" / "Cd" / "sig-tot-Cd.dat"
+    
+    
+    E_mix, sigma_mix, sigma_Cd, sigma_CH2 = build_sigma_mix_from_files(
+        B_file,
+        C_file,
+        H_file,
+        O_file,
+        Si_file,
+        Cd_file,
+        0.650218276,
+        0.001557414014,
+        0.2690997816,
+        0.07912452836
+    )
+
+    # Aerogel
+    T_mix = transmission_vs_energy(
+        thickness_aerogel,
+        sigma_mix,
+        atomic_density=3.18154E21
+    )
+
+    T_mix_2 = transmission_vs_energy(
+        2.0,
+        sigma_mix,
+        atomic_density=3.18154E21
+    )
+
+    # Cd seul
+    T_Cd = transmission_vs_energy(
+        thickness_Cd,
+        sigma_Cd,
+        atomic_density=composition_data["Cd"]["atomic_density"]
+    )
+
+    # Cd + CH2
+    T_Cd_CH2 = transmission_vs_energy_ref(
+        thickness_Cd,
+        sigma_Cd,
+        thickness_CH2,
+        sigma_CH2
+    )
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    ax.plot(E_mix, T_mix, label="Aerogel 4.5 mm")
+    ax.plot(E_mix, T_mix_2, label="Aerogel 20 mm")
+    ax.plot(E_mix, T_Cd, label="Cd 1 mm")
+    ax.plot(E_mix, T_Cd_CH2, label="Cd 1 mm + CH₂ 5 mm")
+
+    ax.axvline(
+        17,
+        color="k",
+        linestyle="--",
+        alpha=0.5,
+        label="17 eV"
+    )
+
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Transmission")
+    ax.set_xlim(1e-3, 1e7)
+    ax.set_title("Neutron transmission vs energy")
+
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend()
+
+    _integrer_canvas(fig, frame)
+    plt.tight_layout()
+    
+    if frame is not None:
+        return fig
+
+def plot_simulated_source(fichiers, datasets, frame=None, **kwargs):
+    """
+    Plot the simulated neutron source spectrum.
+    """
+
+    BASE_DIR = Path(__file__).parent
+
+    ref_file = (
+        BASE_DIR
+        / "Shielding"
+        / "set-tot"
+        / "spectrum_avant_chopper.dat"
+    )
+
+    E_ref, Flux_ref_simu = load_cross_section(ref_file)
+
+    Flux_ref_simu = Flux_ref_simu
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    ax.plot(
+        E_ref,
+        Flux_ref_simu,
+        linewidth=1.5,
+        label="Simulated source spectrum"
+    )
+
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Flux (arbitrary units)")
+    ax.set_title("Simulated neutron source spectrum")
+
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend()
+
+    _integrer_canvas(fig, frame)
+    plt.tight_layout()
+
+    if frame is not None:
+        return fig
